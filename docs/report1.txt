@@ -1,0 +1,52 @@
+[DELETE THIS LATER: everyone please feel free to add whatever you'd like
+and make any edits you feel necessary! for the coming up weeks i
+will figure out a nicer way to divy up work but i was swamped this
+week and completely forgot]
+
+1) In 2–3 sentences, clearly summarize your overall project objective. How has your project goal
+evolved since last week? Indicate any updates, refinements, or changes to your goal since the
+previous week.
+
+Our project goal is to help UpOrlando optimize their Mobile Prosperity Program's food market.
+We are in early project stages, compiling our data and planning potential project directions. Most
+importantly, we are creating a list of critical questions for UpOrlando and our project team; their 
+answers will clarify questions about data and inform us of the most strategic path forward.
+
+2) What was the most important mathematical idea you encountered this week?
+
+3) Provide a clear and detailed account of the work completed during the past week. This may
+include, but is not limited to:
+Read the cited article: Cite a specific article and (key points should be part of your weekly
+progress presentation)
+Mathematical results completed or partially derived. (again, the results are part of your weekly
+progress presentation)
+Each item listed under section 3 should be precise, please do not use vague statements like, I
+read a paper, etc…
+
+[TO BE DELETED: if everyone could please find one paper or article or some something you can
+write a lil blurb about so we can fill this section out. it does not have to be anything super
+duper fancy, just something that is related to something we've talked about as a group.
+no math has been done yet, so don't worry about numbers.]
+
+WEM: A Node Importance Algorithm in Weighted Networks describes a novel method to calcualte
+node importance. Our group is uncertain exactly how our final solution will look, but a weighted
+graph is possible. The use of WEM could be extraordinarily useful as it runs in linear time, 
+and would reduce time spent creating large and complex matrices. 
+(Linjie, Chen & Zhao, Na & Li, Jie & Long, Zhen & Jing, Ming & Wang, Jian. (2021). WEM: A Node Importance Algorithm in Weighted Networks. 10.20944/preprints202301.0385.v1.)
+
+4) Describe any difficulties encountered (examples: computational issues, group communication,
+math issues) and discussed how your group attempted to solve the problem.
+
+
+
+5) Group Contributions: Briefly state each group member’s contribution that week. (The same
+people cannot make similar contributions week after week, meaning you cannot always be the
+person who read a peer-reviewed journal article and summarize it for your group)
+
+
+
+6) How did you meet (in-person or Zoom) and how many times did you meet? Please include
+your attendance sheet from your meetings.
+
+We have scheduled meetings for Thursdays during lunch (in-person), and Monday evenings 
+after class (digital). All group members attended both meetings.
