@@ -31,12 +31,12 @@ progress presentation)
 Each item listed under section 3 should be precise, please do not use vague statements like, I
 read a paper, etc…
 
-[TO BE DELETED: if everyone could please find one paper or article or some something you can
-write a lil blurb about so we can fill this section out. it does not have to be anything super
-duper fancy, just something that is related to something we've talked about as a group.
-no math has been done yet, so don't worry about numbers.]
-
-WEM: A Node Importance Algorithm in Weighted Networks describes a novel method to calculate
+In order to better understand UpOrlando and their mission with the MPP, we visited one of their pop-up
+markets Wednesday evening. We spoke with some volunteer/marketing employees from Florida Blue Health,
+as well as the ED of UpOrlando. Although an additional visit to the UpOrlando campus will be helpful
+in order to receive more data and familiarize ourselves more with the organization, this visit 
+was very illuminating.
+We found an article titled WEM: A Node Importance Algorithm in Weighted Networks. It describes a novel method to calculate
 node importance. Our group is uncertain exactly how our final solution will look, but a weighted
 graph is possible. The use of WEM could be extraordinarily useful as it runs in linear time, 
 and would reduce time spent creating large and complex matrices. 
