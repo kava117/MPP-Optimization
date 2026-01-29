@@ -62,7 +62,7 @@ Ava: organizing channels of work/communication and meeting schedules, pitching p
 
 Christian: Initialized a preliminary excel graph showcasing zip code member frequency. 
 Helped Coordinate team members and scheduling. Attempted to source peer reviewed 
-articles relating to mobile grocery store deployment, however came up short using 
+articles relating to mobile grocery store deployment, however, came up short using 
 resources such as google scholar and rollins olin library research portal.
 
 6) How did you meet (in-person or Zoom) and how many times did you meet? Please include
