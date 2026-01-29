@@ -1,7 +1,9 @@
 1) In 2–3 sentences, clearly summarize your overall project objective. How has your project goal
 evolved since last week? Indicate any updates, refinements, or changes to your goal since the
 previous week.
+
 2) What was the most important mathematical idea you encountered this week?
+
 3) Provide a clear and detailed account of the work completed during the past week. This may
 include, but is not limited to:
 Read the cited article: Cite a specific article and (key points should be part of your weekly
@@ -10,11 +12,14 @@ Mathematical results completed or partially derived. (again, the results are par
 progress presentation)
 Each item listed under section 3 should be precise, please do not use vague statements like, I
 read a paper, etc…
+
 4) Describe any difficulties encountered (examples: computational issues, group communication,
 math issues) and discussed how your group attempted to solve the problem.
+
 5) Group Contributions: Briefly state each group member’s contribution that week. (The same
 people cannot make similar contributions week after week, meaning you cannot always be the
 person who read a peer-reviewed journal article and summarize it for your group)
+
 6) How did you meet (in-person or Zoom) and how many times did you meet? Please include
 your attendance sheet from your meetings.
 
