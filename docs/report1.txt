@@ -65,6 +65,9 @@ Helped Coordinate team members and scheduling. Attempted to source peer reviewed
 articles relating to mobile grocery store deployment, however, came up short using 
 resources such as google scholar and rollins olin library research portal.
 
+Manuel: Researched route calculation algorithms, creation of heatmaps, as well as retention strategies
+to motivate participants to reach out to UpOrlando for their resources.
+
 6) How did you meet (in-person or Zoom) and how many times did you meet? Please include
 your attendance sheet from your meetings.
 
