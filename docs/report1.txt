@@ -7,12 +7,20 @@ week and completely forgot]
 evolved since last week? Indicate any updates, refinements, or changes to your goal since the
 previous week.
 
-Our project goal is to help UpOrlando optimize their Mobile Prosperity Program's food market.
+Our project goal is to help UpOrlando optimize their Mobile Prosperity Program's (MPP) food market.
 We are in early project stages, compiling our data and planning potential project directions. Most
 importantly, we are creating a list of critical questions for UpOrlando and our project team; their 
-answers will clarify questions about data and inform us of the most strategic path forward.
+answers will clarify questions about data and inform us of the most strategic path forward. Some
+of these questions were answered during our Wednesday visit to the MPP pop-up.
+
 
 2) What was the most important mathematical idea you encountered this week?
+
+As we are in the early stages of project planning, understanding our data has been critical. Our
+research will be based around what we are able to do with the numbers we are given (and what
+other numbers we can figure out with those numbers), so being able to comprehend and make
+inferences with our data is very important.
+
 
 3) Provide a clear and detailed account of the work completed during the past week. This may
 include, but is not limited to:
@@ -28,21 +36,29 @@ write a lil blurb about so we can fill this section out. it does not have to be 
 duper fancy, just something that is related to something we've talked about as a group.
 no math has been done yet, so don't worry about numbers.]
 
-WEM: A Node Importance Algorithm in Weighted Networks describes a novel method to calcualte
+WEM: A Node Importance Algorithm in Weighted Networks describes a novel method to calculate
 node importance. Our group is uncertain exactly how our final solution will look, but a weighted
 graph is possible. The use of WEM could be extraordinarily useful as it runs in linear time, 
 and would reduce time spent creating large and complex matrices. 
 (Linjie, Chen & Zhao, Na & Li, Jie & Long, Zhen & Jing, Ming & Wang, Jian. (2021). WEM: A Node Importance Algorithm in Weighted Networks. 10.20944/preprints202301.0385.v1.)
 
+
 4) Describe any difficulties encountered (examples: computational issues, group communication,
 math issues) and discussed how your group attempted to solve the problem.
 
+Our greatest difficulty is both a lack of comprehensive data and lack of specific direction. This
+inhibits our ability to get working quickly; we have come up with some potential project
+directions and a list of questions in order to receive clarifying information from our partners
+at UpOrlando. Additionally, we as a group visited one of UpOrlando's MPP pop-ups in order to
+ask preliminary questions and learn more about their mission, needs, and routines. Although
+we still need more information, the visit was highly insightful.
 
 
 5) Group Contributions: Briefly state each group member’s contribution that week. (The same
 people cannot make similar contributions week after week, meaning you cannot always be the
 person who read a peer-reviewed journal article and summarize it for your group)
 
+Ava: organizing channels of work/communication and meeting schedules, pitching preliminary ideas
 
 
 6) How did you meet (in-person or Zoom) and how many times did you meet? Please include
