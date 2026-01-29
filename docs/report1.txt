@@ -70,10 +70,11 @@ to motivate participants to reach out to UpOrlando for their resources.
 
 Mei: Created initial graphs from the data given to visualize client demographics using excel.
 These demographics included income, # children, # household members, % single mother, income per household
-member, 
+member, employment status, age, and race.
 
 6) How did you meet (in-person or Zoom) and how many times did you meet? Please include
 your attendance sheet from your meetings.
 
 We have scheduled meetings for Thursdays during lunch (in-person), and Monday evenings 
-after class (digital). All group members attended both meetings.
+after class (digital). All group members attended both meetings. We also met on Wednesday to attend
+a site visit together, and all members were present.
