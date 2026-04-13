@@ -34,6 +34,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import networkx as nx
 
+STOPWORDS = {"of", "the", "and", "at", "in", "a", "an", "for", "to", "by"}
+
+def abbreviate_label(index: int, name: str) -> str:
+    """Used only for graph visualization. Full names are stored in the matrix CSVs."""
+    words = name.split()
+    parts = [w[:3].capitalize() + "." for w in words if w.lower() not in STOPWORDS]
+    return f"{index}: {' '.join(parts)}"
+
+
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
 DRIVING_MATRIX_CSV = "driving_matrix.csv"
@@ -131,33 +140,13 @@ class PriorityDominatingSetSolver:
         self, label: str, meta_df: pd.DataFrame
     ) -> pd.Series | None:
         """
-        Match an adjacency matrix label (e.g. '1: Cal. Nei. Cen.')
-        back to a metadata row by fuzzy name matching.
-        Returns the matching row or None if no match.
+        Match an adjacency matrix label (full center name) to a metadata row
+        by exact name lookup. Returns the matching row or None if no match.
         """
-        # Strip the index prefix: '1: Cal. Nei. Cen.' -> 'Cal. Nei. Cen.'
-        abbr = label.split(": ", 1)[-1].lower().replace(".", "").strip()
-        abbr_tokens = set(abbr.split())
-
-        best_match = None
-        best_score = 0
-
-        for _, row in meta_df.iterrows():
-            if not isinstance(row.get("name"), str):
-                continue
-            name_tokens = set(row["name"].lower().split())
-            # Score = number of overlapping first-3-char tokens
-            score = sum(
-                1 for t in abbr_tokens
-                if any(n.startswith(t[:3]) for n in name_tokens)
-            )
-            if score > best_score:
-                best_score = score
-                best_match = row
-
-        if best_score == 0:
+        row = meta_df[meta_df["name"] == label]
+        if row.empty:
             return None
-        return best_match
+        return row.iloc[0]
 
     # ── Scoring ───────────────────────────────────────────────────────────────
 
@@ -356,7 +345,7 @@ class PriorityDominatingSetSolver:
         fig, ax = plt.subplots(figsize=(18, 13))
         ax.set_title(title, fontsize=13, fontweight="bold", pad=15)
 
-        label_map = {i: labels[i] for i in range(len(labels))}
+        label_map = {i: abbreviate_label(i + 1, labels[i]) for i in range(len(labels))}
 
         # Color: red = dominating, grey = skipped/ineligible, orange = regular
         node_colors = []

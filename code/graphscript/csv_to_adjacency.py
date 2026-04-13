@@ -35,8 +35,9 @@ STOPWORDS = {"of", "the", "and", "at", "in", "a", "an", "for", "to", "by"}
 
 # ─── HELPERS ─────────────────────────────────────────────────────────────────
 
-def abbreviate_name(index: int, name: str) -> str:
-    """'Colonialtown Neighborhood Center' → '1: Col. Nei. Cen.'"""
+def abbreviate_label(index: int, name: str) -> str:
+    """Used only for graph visualization. Full names are stored in the matrix CSVs.
+    'Colonialtown Neighborhood Center' → '1: Col. Nei. Cen.'"""
     words = name.split()
     parts = []
     for w in words:
@@ -125,7 +126,7 @@ def draw_graph(G: nx.Graph, labels: list[str], pos: dict,
     fig, ax = plt.subplots(figsize=(14, 10))
     ax.set_title(title, fontsize=14, fontweight="bold", pad=15)
 
-    label_map = {i: labels[i] for i in range(len(labels))}
+    label_map = {i: abbreviate_label(i + 1, labels[i]) for i in range(len(labels))}
     edge_weights = [G[u][v]["weight"] for u, v in G.edges()]
 
     # Normalize edge width by weight (thinner = longer distance)
@@ -163,8 +164,7 @@ def main():
     print(f"  Loaded {len(df)} nodes.")
 
     coords = list(zip(df["lat"].astype(float), df["lon"].astype(float)))
-    raw_labels = df["name"].tolist()
-    labels = [abbreviate_name(i + 1, name) for i, name in enumerate(raw_labels)]
+    labels = df["name"].tolist()
 
     # 2. Query OSRM
     print("\nFetching distances from OSRM...")

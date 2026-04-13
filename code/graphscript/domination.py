@@ -23,6 +23,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import pulp
  
+STOPWORDS = {"of", "the", "and", "at", "in", "a", "an", "for", "to", "by"}
+
+def abbreviate_label(index: int, name: str) -> str:
+    """Used only for graph visualization. Full names are stored in the matrix CSVs."""
+    words = name.split()
+    parts = [w[:3].capitalize() + "." for w in words if w.lower() not in STOPWORDS]
+    return f"{index}: {' '.join(parts)}"
+
+
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
  
 DRIVING_MATRIX_CSV = "driving_matrix.csv"
@@ -131,8 +140,8 @@ class DominatingSetSolver:
         fig, ax = plt.subplots(figsize=(18, 13))
         ax.set_title(title, fontsize=13, fontweight="bold", pad=15)
  
-        label_map = {i: labels[i] for i in range(len(labels))}
- 
+        label_map = {i: abbreviate_label(i + 1, labels[i]) for i in range(len(labels))}
+
         # Node colors: red for dominating set, orange otherwise
         node_colors = [
             COLOR_DOMINATING if i in dominating_set else COLOR_REGULAR
