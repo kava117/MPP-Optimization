@@ -129,24 +129,34 @@ class PriorityDominatingSetSolver:
         df = df.rename(columns=col_map)
 
         # Keep only the columns we need
-        keep = ["name", "median_income", "population_size",
+        keep = ["name", "lat", "lon", "median_income", "population_size",
                  "pop_density", "food_desert_score", "bus_stop_count"]
         df = df[[c for c in keep if c in df.columns]].copy()
         return df
 
     # ── Label matching ────────────────────────────────────────────────────────
 
-    def _match_label_to_metadata(
-        self, label: str, meta_df: pd.DataFrame
-    ) -> pd.Series | None:
+    def _build_metadata_map(
+        self, labels: list[str], meta_df: pd.DataFrame
+    ) -> dict[int, pd.Series]:
         """
-        Match an adjacency matrix label (full center name) to a metadata row
-        by exact name lookup. Returns the matching row or None if no match.
+        Build a node-index → metadata-row mapping using occurrence-order matching.
+        When a name appears N times in labels, it is paired with the 1st through Nth
+        rows of that name in meta_df, in order. Returns None for unmatched nodes.
         """
-        row = meta_df[meta_df["name"] == label]
-        if row.empty:
-            return None
-        return row.iloc[0]
+        # Pre-group metadata rows by name, preserving order
+        name_to_rows: dict[str, list[pd.Series]] = {}
+        for _, row in meta_df.iterrows():
+            name_to_rows.setdefault(row["name"], []).append(row)
+
+        seen: dict[str, int] = {}
+        mapping: dict[int, pd.Series | None] = {}
+        for i, label in enumerate(labels):
+            occurrence = seen.get(label, 0)
+            seen[label] = occurrence + 1
+            rows = name_to_rows.get(label, [])
+            mapping[i] = rows[occurrence] if occurrence < len(rows) else None
+        return mapping
 
     # ── Scoring ───────────────────────────────────────────────────────────────
 
@@ -212,6 +222,7 @@ class PriorityDominatingSetSolver:
         adj: np.ndarray,
         labels: list[str],
         meta_df: pd.DataFrame,
+        meta_map: dict | None = None,
     ) -> dict[int, dict]:
         """
         Compute priority scores for all nodes.
@@ -226,11 +237,13 @@ class PriorityDominatingSetSolver:
         n = len(labels)
         degrees = [(adj[i] > 0).sum() for i in range(n)]
         all_degrees = list(degrees)
+        if meta_map is None:
+            meta_map = self._build_metadata_map(labels, meta_df)
 
         priorities = {}
         for i, label in enumerate(labels):
             degree = int(degrees[i])
-            meta = self._match_label_to_metadata(label, meta_df)
+            meta = meta_map[i]
 
             if meta is None:
                 priorities[i] = {
@@ -341,16 +354,22 @@ class PriorityDominatingSetSolver:
         priorities: dict[int, dict],
         title: str,
         filepath: str,
+        exclude_nodes: set[int] | None = None,
     ):
+        exclude_nodes = exclude_nodes or set()
+        nodelist = [i for i in G.nodes() if i not in exclude_nodes]
+        edgelist = [(u, v) for u, v in G.edges()
+                    if u not in exclude_nodes and v not in exclude_nodes]
+
         fig, ax = plt.subplots(figsize=(18, 13))
         ax.set_title(title, fontsize=13, fontweight="bold", pad=15)
 
-        label_map = {i: abbreviate_label(i + 1, labels[i]) for i in range(len(labels))}
+        label_map = {i: abbreviate_label(i + 1, labels[i]) for i in nodelist}
 
         # Color: red = dominating, grey = skipped/ineligible, orange = regular
         node_colors = []
         node_sizes  = []
-        for i in range(len(labels)):
+        for i in nodelist:
             if i in dominating_set:
                 node_colors.append(COLOR_DOMINATING)
                 node_sizes.append(550)
@@ -361,25 +380,28 @@ class PriorityDominatingSetSolver:
                 node_colors.append(COLOR_REGULAR)
                 node_sizes.append(300)
 
-        edge_weights = [G[u][v]["weight"] for u, v in G.edges()]
+        edge_weights = [G[u][v]["weight"] for u, v in edgelist]
         if edge_weights:
             max_w  = max(edge_weights)
             widths = [1.5 * (1 - w / (max_w + 0.001)) + 0.5 for w in edge_weights]
         else:
             widths = [1.0]
 
-        nx.draw_networkx_edges(G, pos, ax=ax, width=widths,
-                               alpha=0.4, edge_color=COLOR_EDGE)
-        nx.draw_networkx_nodes(G, pos, ax=ax, node_size=node_sizes,
-                               node_color=node_colors, alpha=0.92)
+        nx.draw_networkx_edges(G, pos, ax=ax, edgelist=edgelist, width=widths,
+                               alpha=0.4, edge_color=COLOR_EDGE,
+                               arrows=True, connectionstyle="arc3,rad=0.0")
+        nx.draw_networkx_nodes(G, pos, ax=ax, nodelist=nodelist,
+                               node_size=node_sizes, node_color=node_colors, alpha=0.92)
         nx.draw_networkx_labels(G, pos, labels=label_map, ax=ax,
                                 font_size=6, font_color="#111")
 
-        edge_labels = {
-            (u, v): f"{G[u][v]['weight']:.2f}mi" for u, v in G.edges()
-        }
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=ax,
-                                     font_size=4.5, label_pos=0.35, alpha=0.7)
+        # draw_networkx_edge_labels has a bug in networkx 3.6 where it tries to
+        # read connectionstyle back as a string but gets a callable. Place labels manually.
+        for u, v in edgelist:
+            label = f"{G[u][v]['weight']:.2f}mi"
+            x = pos[u][0] + 0.35 * (pos[v][0] - pos[u][0])
+            y = pos[u][1] + 0.35 * (pos[v][1] - pos[u][1])
+            ax.text(x, y, label, fontsize=4.5, alpha=0.7, ha="center", va="center")
 
         n_dom     = len(dominating_set)
         n_skipped = sum(1 for p in priorities.values() if not p["eligible"])
@@ -472,7 +494,8 @@ class PriorityDominatingSetSolver:
             print(f"  {len(labels)} nodes loaded.")
 
             print(f"Computing priority scores ({mode})...")
-            priorities = self._compute_priorities(adj, labels, meta_df)
+            meta_map = self._build_metadata_map(labels, meta_df)
+            priorities = self._compute_priorities(adj, labels, meta_df, meta_map)
 
             eligible_count = sum(1 for p in priorities.values() if p["eligible"])
             skipped_count  = len(priorities) - eligible_count
@@ -487,6 +510,34 @@ class PriorityDominatingSetSolver:
             spring_pos = nx.spring_layout(G, seed=42, k=2.5)
             mode_lower = mode.lower()
 
+            # Build geo positions from lat/lon in metadata (using occurrence-order map)
+            geo_pos = {}
+            geo_missing = set()
+            for i in range(len(labels)):
+                meta = meta_map[i]
+                if meta is not None and not pd.isna(meta.get("lat")) and not pd.isna(meta.get("lon")):
+                    geo_pos[i] = (float(meta["lon"]), float(meta["lat"]))
+                else:
+                    geo_missing.add(i)
+            if geo_missing:
+                print(f"  Note: {len(geo_missing)} node(s) missing lat/lon, omitted from geo graph.")
+
+            # Normalize geo positions to [-1, 1] to avoid numerical issues in nx renderers
+            lons = [p[0] for p in geo_pos.values()]
+            lats = [p[1] for p in geo_pos.values()]
+            lon_min, lon_max = min(lons), max(lons)
+            lat_min, lat_max = min(lats), max(lats)
+            lon_range = lon_max - lon_min or 1.0
+            lat_range = lat_max - lat_min or 1.0
+            geo_pos = {
+                i: ((p[0] - lon_min) / lon_range * 2 - 1,
+                    (p[1] - lat_min) / lat_range * 2 - 1)
+                for i, p in geo_pos.items()
+            }
+            # geo_missing nodes have no position; pass a dummy so nx doesn't error on node lookup
+            for i in geo_missing:
+                geo_pos[i] = (0.0, 0.0)
+
             print(f"\nGenerating graphs ({mode})...")
             self._draw_graph(
                 G, labels, spring_pos, dominating_set, priorities,
@@ -494,12 +545,12 @@ class PriorityDominatingSetSolver:
                        f"Priority Greedy Dominating Set ({len(dominating_set)} nodes)"),
                 filepath=f"{self.output_dir}{mode_lower}_graph_spring_priority_mds.png",
             )
-            # Geo layout falls back to spring (coords not stored in matrix CSV)
             self._draw_graph(
-                G, labels, spring_pos, dominating_set, priorities,
+                G, labels, geo_pos, dominating_set, priorities,
                 title=(f"{mode} Graph - Geographic Layout | "
                        f"Priority Greedy Dominating Set ({len(dominating_set)} nodes)"),
                 filepath=f"{self.output_dir}{mode_lower}_graph_geo_priority_mds.png",
+                exclude_nodes=geo_missing,
             )
 
         print("\nAll done!")
