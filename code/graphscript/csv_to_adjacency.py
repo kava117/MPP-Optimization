@@ -205,19 +205,19 @@ def main():
     # 8. Draw all 4 images
     draw_graph(driving_G, labels, driving_spring_pos,
                f"Driving Graph — Spring Layout (threshold: {DRIVING_THRESHOLD_MILES} mi)",
-               "driving_graph_spring.png")
+               "images/driving_graph_spring.png")
 
     draw_graph(driving_G, labels, geo_pos,
                f"Driving Graph — Geographic Layout (threshold: {DRIVING_THRESHOLD_MILES} mi)",
-               "driving_graph_geo.png")
+               "images/driving_graph_geo.png")
 
     draw_graph(walking_G, labels, walking_spring_pos,
                f"Walking Graph — Spring Layout (threshold: {WALKING_THRESHOLD_MILES} mi)",
-               "walking_graph_spring.png")
+               "images/walking_graph_spring.png")
 
     draw_graph(walking_G, labels, geo_pos,
                f"Walking Graph — Geographic Layout (threshold: {WALKING_THRESHOLD_MILES} mi)",
-               "walking_graph_geo.png")
+               "images/walking_graph_geo.png")
 
     print("\nAll done!")
 

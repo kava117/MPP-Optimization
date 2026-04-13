@@ -47,9 +47,9 @@ def abbreviate_label(index: int, name: str) -> str:
 
 DRIVING_MATRIX_CSV = "driving_matrix.csv"
 WALKING_MATRIX_CSV = "walking_matrix.csv"
-METADATA_CSV       = "centers.csv"
+METADATA_CSV       = "weighted_centers.csv"
 
-OUTPUT_DIR = ""  # Set to e.g. "outputs/" if needed
+OUTPUT_DIR = "images/"
 
 # Fixed scoring thresholds
 INCOME_LOW    = 45_000   # < this  -> score 3 (high priority)
