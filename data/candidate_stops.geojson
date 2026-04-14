@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id": 12, "name": "Downtown Station" },
+      "geometry": { "type": "Point", "coordinates": [-81.38, 28.53] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": 18, "name": "North Park" },
+      "geometry": { "type": "Point", "coordinates": [-81.35, 28.55] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": 27, "name": "West Plaza" },
+      "geometry": { "type": "Point", "coordinates": [-81.40, 28.50] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": 35, "name": "East Market" },
+      "geometry": { "type": "Point", "coordinates": [-81.30, 28.57] }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mobile Market Locations</title>
+    <meta name="description" content="Visualizing optimal mobile market locations in Central Florida.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    />
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Panel -->
+        <aside class="sidebar">
+            <header class="sidebar-header">
+                <h1>Mobile Markets</h1>
+                <p>Optimization Dashboard</p>
+            </header>
+
+            <section class="panel metrics-panel">
+                <h2>Coverage Metrics</h2>
+                <div class="metric-card">
+                    <span class="metric-label">Optimal Stops</span>
+                    <span class="metric-value" id="val-optimal-stops">--</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">ZIPs Covered</span>
+                    <span class="metric-value">
+                        <span id="val-zips-covered">--</span> / <span id="val-zips-total">--</span>
+                    </span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Coverage Rate</span>
+                    <span class="metric-value highlight" id="val-coverage-rate">--%</span>
+                </div>
+            </section>
+
+            <section class="panel scenarios-panel">
+                <h2>Scenarios</h2>
+                <p class="panel-desc">Select transportation mode to view optimized stops.</p>
+                <div class="scenario-toggles">
+                    <button class="btn btn-scenario active" data-mode="walking">Walking</button>
+                    <button class="btn btn-scenario" data-mode="driving">Driving</button>
+                    <button class="btn btn-scenario" data-mode="transit">Public Transit</button>
+                </div>
+            </section>
+
+            <section class="panel layers-panel">
+                <h2>Data Layers</h2>
+                <label class="toggle-control">
+                    <input type="checkbox" id="layer-zips" checked />
+                    <span class="slider"></span>
+                    <span class="label-text">ZIP Codes</span>
+                </label>
+                <label class="toggle-control">
+                    <input type="checkbox" id="layer-candidates" checked />
+                    <span class="slider"></span>
+                    <span class="label-text">Candidate Stops</span>
+                </label>
+                <label class="toggle-control">
+                    <input type="checkbox" id="layer-optimal" checked />
+                    <span class="slider"></span>
+                    <span class="label-text">Optimal Stops & Coverage</span>
+                </label>
+            </section>
+        </aside>
+
+        <!-- Main Map Area -->
+        <main class="map-container">
+            <div id="map"></div>
+            <div id="map-loading" class="loading-overlay hidden">
+                <div class="spinner"></div>
+                <p>Loading Optimization Data...</p>
+            </div>
+            <div id="map-error" class="error-toast hidden">
+                Data could not be loaded. Please ensure dataset files exist.
+            </div>
+        </main>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    
+    <!-- App Script -->
+    <script src="script.js"></script>
+</body>
+</html>
