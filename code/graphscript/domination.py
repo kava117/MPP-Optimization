@@ -7,14 +7,6 @@ minimum dominating set of each graph using Integer Linear Programming
  
 Requirements:
     pip install pulp pandas numpy matplotlib networkx
- 
-Usage (standalone):
-    python dominating_set.py
- 
-Usage (importable):
-    from dominating_set import DominatingSetSolver
-    solver = DominatingSetSolver()
-    solver.run()
 """
  
 import pandas as pd

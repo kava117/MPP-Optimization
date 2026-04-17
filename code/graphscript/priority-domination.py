@@ -18,14 +18,6 @@ Ties in priority are broken by degree (higher degree wins).
 
 Requirements:
     pip install pandas numpy matplotlib networkx
-
-Usage (standalone):
-    python priority_dominating_set.py
-
-Usage (importable):
-    from priority_dominating_set import PriorityDominatingSetSolver
-    solver = PriorityDominatingSetSolver()
-    solver.run()
 """
 
 import pandas as pd

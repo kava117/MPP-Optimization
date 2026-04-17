@@ -7,10 +7,6 @@ saves them as CSVs, and generates spring + geographic graph images.
 
 Requirements:
     pip install requests pandas numpy matplotlib networkx
-
-Usage:
-    1. Set your CSV path and threshold below.
-    2. Run: python csv_to_adjacency.py
 """
 
 import time
