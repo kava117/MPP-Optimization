@@ -22,7 +22,10 @@ csv_to_adjacency.py
     └── walking_matrix.csv
             │
             ├──▶ domination.py           (ILP — optimal, size-minimizing)
-            └──▶ priority-domination.py  (Greedy — equity-weighted)
+            ├──▶ priority-domination.py  (Greedy — equity-weighted)
+            └──▶ keyplayer_viz.py        (Key player analysis — centrality-based)
+                      │
+                      └── keyplayer_analysis.R  (R subprocess — runs kpset)
 ```
 
 Each stage is a standalone script. The adjacency CSVs are the only artifact passed between stages.
@@ -137,8 +140,97 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 
 ---
 
+### `keyplayer_analysis.R` + `keyplayer_viz.py`
+
+**Role:** Key player analysis — identifies which nodes are structurally most important using centrality-based methods from Borgatti (2006), as implemented in the R `keyplayer` package (An & Liu 2016). Complements the dominating set approaches by asking a different question: not *which nodes cover the graph* but *which nodes are most critical to the network's structure*.
+
+**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `weighted_centers.csv`
+
+**Outputs:**
+- `keyplayer_driving_fragment.csv`, `keyplayer_driving_mreach.csv`
+- `keyplayer_walking_fragment.csv`, `keyplayer_walking_mreach.csv`
+- `images/keyplayer_spring.png` — 2×2 combined figure, spring layout
+- `images/keyplayer_geo.png` — 2×2 combined figure, geographic layout
+
+**How it works:**
+
+`keyplayer_viz.py` calls `Rscript keyplayer_analysis.R` as a subprocess, waits for it to complete, reads the 4 output CSVs, and produces the visualizations using the same networkx/matplotlib pipeline as the other solvers.
+
+`keyplayer_analysis.R` runs four scenarios (2 matrices × 2 metrics):
+
+1. Loads each matrix CSV, reads the first column as row names, applies `make.unique()` to handle duplicate node names, and binarizes (edge > 0 → 1).
+2. Calls `kpset()` to find the k=5 most central nodes under each metric.
+3. Calls `kpcent()` individually for each node in the result set to compute a standalone importance score, which is used to rank the 5 nodes within the set (rank 1 = highest individual score).
+4. Writes a CSV with node name, rank, and centrality score for each scenario.
+
+**Key parameters:**
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `K` | `5` | Number of key players to find |
+| `ROUNDS` | `50` | Random-restart rounds for the greedy search |
+| `M` | `2` (KPP-Pos only) | Max hop distance for M-reach scoring |
+
+**Metrics:**
+
+| Label | `kpset` type | Method | Meaning |
+|---|---|---|---|
+| KPP-Neg | `"fragment"` | `"min"` | Nodes whose removal most fragments the network (disruption) |
+| KPP-Pos | `"mreach.degree"` | `"max"` | Nodes that collectively reach the most other nodes within 2 hops |
+
+**Visualization:** Key players are rendered in a 5-shade red gradient by within-set rank: near-black red (rank 1, most important) through pale pink (rank 5, least important within the set). Non-key-player nodes are orange. A shared legend appears at the bottom of each combined figure.
+
+**Search algorithm:** The `keyplayer` package uses a greedy search with random restarts — not a genetic algorithm. `seed="random"` and `round=50` provide 50 random restarts, which is adequate for a 65-node network. There is no GA option in this package.
+
+---
+
+#### Bugs and Concerns
+
+**1. `mreach.degree` scores exceed network size — metric is not a unique-node count**
+
+Individual `mreach.degree` scores for some nodes exceed 65 (the total number of nodes). The maximum observed individual score is 90. This is because the default `cmode="total"` sums the *in-degree + out-degree* of all nodes reachable within M hops, not the *count of unique reachable nodes*. As a result:
+- The KPP-Pos set score of 111 (for driving) is inflated and not interpretable as "111 nodes covered."
+- Rankings within the key player set are comparisons of the same biased metric, so relative ordering is consistent but absolute scores are not coverage counts.
+- If the intended question is "which 5 centers can serve the most distinct neighborhoods within 2 connections," this metric does not answer it cleanly.
+
+**Possible fix:** Use `cmode="outdegree"` to count only outgoing reach, which reduces but does not eliminate double-counting on directed graphs. A fully unambiguous unique-node coverage measure would require a custom implementation outside of `keyplayer`.
+
+---
+
+**2. Near-isolated nodes can be selected by kpset when k exceeds the number of useful nodes**
+
+In the driving KPP-Pos result, two of the five selected nodes (Clarcona Community Center and Orange County Orlando Magic Recreation Center) have out-degree 0 and 1 respectively — they are essentially disconnected from the network. Their individual `kpcent` scores are 0 and 2. They were selected because the greedy algorithm must always return exactly k=5 nodes, filling remaining slots with whatever marginally improves the score even when marginal gain is zero.
+
+This is a structural issue with any fixed-k key player algorithm on sparse graphs: it cannot signal "fewer than k meaningful key players exist." The driving KPP-Pos results suggest that genuine marginal coverage saturates at approximately 3 nodes; the 4th and 5th selections are noise.
+
+**Implication for interpretation:** Check individual `centrality_score` values in the output CSVs before treating all k selections as meaningful. Nodes with score 0 (or near-zero relative to rank 1) should be treated as artifacts of the fixed-k constraint, not as genuinely important nodes.
+
+---
+
+**3. The driving matrix is not symmetric**
+
+`csv_to_adjacency.py` queries OSRM for directed driving distances, which are not guaranteed to be symmetric (A→B ≠ B→A in general due to one-way streets and routing differences). The adjacency matrix passed to `keyplayer` is therefore directed. The `keyplayer` package handles directed graphs, but:
+- Fragmentation scores reflect the directed structure and may differ substantially from what an undirected analysis would produce.
+- `mreach.degree` with `cmode="total"` counts both in- and out-edges, which is partly why scores exceed n.
+- `domination.py` and `priority-domination.py` treat the matrix as undirected implicitly (they check `adj[i][j] > 0` for both directions). If asymmetric edges exist, the two solver families are operating on slightly different graphs.
+
+---
+
+**4. `kpcent` within-set ranking is an approximation**
+
+The rank assigned to each key player is based on that node's *individual* `kpcent` score — how important it would be if it were the sole key player. This is a proxy for within-set importance, not a true marginal contribution score. True marginal contribution would require recomputing the set score with each node removed, which the current implementation does not do. For closely ranked nodes (e.g., the fragmentation scores of 0.9985 for three walking nodes), the rank ordering may not be meaningful.
+
+---
+
+**5. Duplicate node names require `make.unique()` in R**
+
+At least one node name ("Community Health Centers") appears more than once in the matrix CSVs, causing R's `read.csv(row.names=1)` to fail with "duplicate row.names are not allowed." The R script works around this with `make.unique()`, which appends `.1`, `.2`, etc. to duplicates. However, the resulting deduplicated names (e.g., `"Community Health Centers.1"`) will not match against `weighted_centers.csv` if any downstream lookup by name is needed. The Python side uses occurrence-order matching (not name matching) when reading R output CSVs, so this is currently safe — but adding any R-side name lookup against the metadata CSV would silently fail for the duplicated node.
+
+---
+
 ## Dependencies
 
+**Python:**
 ```
 requests
 pandas
@@ -149,6 +241,15 @@ pulp          # domination.py only
 ```
 
 Install: `pip install requests pandas numpy matplotlib networkx pulp`
+
+**R** (required for `keyplayer_viz.py`):
+```
+keyplayer     # installs igraph, sna, network, matpow as dependencies
+```
+
+Install: `Rscript -e "install.packages('keyplayer', repos='https://cran.r-project.org')"`
+
+System packages required to compile R dependencies from source (Ubuntu/Debian): `libxml2-dev libglpk-dev libgmp-dev gfortran`
 
 ---
 
@@ -166,5 +267,6 @@ The difference in set size between the two runs quantifies the "equity cost" of 
 ## Known Gaps / Future Work
 
 - `centers.csv` is missing the socioeconomic columns required by `priority-domination.py`. All nodes will be marked ineligible until those columns are populated.
-- Geographic layout in both solver scripts falls back to spring layout. True geo layout requires threading `(lat, lon)` coordinates from `centers.csv` through to the solver classes (a coord list is not stored in the matrix CSVs).
-- The two solvers share significant boilerplate (`_load_matrix`, `_build_graph`, `_draw_graph`, `abbreviate_label`). If a third solver variant is added, consider extracting a shared base class or utility module.
+- The three solver scripts share significant boilerplate (`_load_matrix`, `_build_graph`, `_draw_graph`, `abbreviate_label`, geo position logic). If further variants are added, consider extracting a shared utility module.
+- The KPP-Pos (`mreach.degree`) metric does not count unique reachable nodes — see concern #1 in the keyplayer section. A custom reach implementation may be needed for a clean coverage interpretation.
+- The fixed-k constraint in `kpset` cannot signal that fewer than k meaningful key players exist. For sparse subgraphs (especially walking), results should be interpreted carefully — see concern #2.
