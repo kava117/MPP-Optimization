@@ -15,6 +15,7 @@ Run: python main.py
 
 from __future__ import annotations
 import sys
+import os
 from pathlib import Path
 import tempfile
 import pandas as pd
@@ -27,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtWebEngineWidgets import QWebEngineView
+#from PySide6.QtWebEngineWidgets import QWebEngineView
 
 import folium
 
@@ -35,9 +36,36 @@ import scoring
 import database
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-APP_DIR = Path(__file__).parent
-DATA_CSV = APP_DIR / "weighted_centers.csv"
-DB_PATH = database.get_db_path(APP_DIR)
+# Two paths matter:
+#   - RESOURCE_DIR: where bundled read-only files live (CSV, etc.)
+#       In dev: the project folder.
+#       In PyInstaller .exe: the temp extraction folder (sys._MEIPASS).
+#   - USER_DATA_DIR: where the app writes user-editable data (SQLite DB).
+#       Always %APPDATA%\UpOrlandoAnalyzer on Windows so it persists across launches.
+
+def _get_resource_dir() -> Path:
+    """Folder containing bundled read-only resources (CSV, etc.)."""
+    if hasattr(sys, "_MEIPASS"):
+        # Running as PyInstaller bundle
+        return Path(sys._MEIPASS)
+    return Path(__file__).parent
+
+def _get_user_data_dir() -> Path:
+    """Persistent per-user folder for the app's writable data."""
+    if sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    app_dir = base / "UpOrlandoAnalyzer"
+    app_dir.mkdir(parents=True, exist_ok=True)
+    return app_dir
+
+RESOURCE_DIR = _get_resource_dir()
+USER_DATA_DIR = _get_user_data_dir()
+DATA_CSV = RESOURCE_DIR / "weighted_centers.csv"
+DB_PATH = database.get_db_path(USER_DATA_DIR)
 
 
 # ─── Priority tier colors (for table + map) ──────────────────────────────────
@@ -209,33 +237,52 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Export Complete",
                                 f"Saved {len(export_df)} rows to:\n{path}")
 
-    # ── Map tab ───────────────────────────────────────────────────────────────
+  # ── Map tab ───────────────────────────────────────────────────────────────
 
     def _build_map_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
 
-        legend = QLabel(
-            "<b>Map Legend:</b> &nbsp;"
-            "<span style='background:#dc2626;color:white;padding:2px 8px;'>High</span> &nbsp;"
-            "<span style='background:#f59e0b;color:white;padding:2px 8px;'>Medium</span> &nbsp;"
-            "<span style='background:#10b981;color:white;padding:2px 8px;'>Low</span> &nbsp;"
-            "<span style='background:#9ca3af;color:white;padding:2px 8px;'>Ineligible</span> &nbsp;"
-            "&nbsp;&nbsp;User-added centers have a blue border."
+        info = QLabel(
+            "<h3>Interactive Map</h3>"
+            "<p>The map opens in your default web browser for the best experience. "
+            "Click the button below to generate and view the current rankings on a map of Orlando.</p>"
+            "<p><b>Map Legend:</b> &nbsp;"
+            "<span style='background:#dc2626;color:white;padding:2px 8px;'>High priority</span> &nbsp;"
+            "<span style='background:#f59e0b;color:white;padding:2px 8px;'>Medium priority</span> &nbsp;"
+            "<span style='background:#10b981;color:white;padding:2px 8px;'>Low priority</span> &nbsp;"
+            "<span style='background:#9ca3af;color:white;padding:2px 8px;'>Ineligible</span></p>"
+            "<p>User-added centers appear with a blue border. Click any dot for the center's details.</p>"
         )
-        legend.setStyleSheet("padding: 6px;")
-        layout.addWidget(legend)
+        info.setWordWrap(True)
+        info.setStyleSheet("padding: 20px;")
+        layout.addWidget(info)
 
-        self.map_view = QWebEngineView()
-        layout.addWidget(self.map_view)
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_open_map = QPushButton("Open Map in Browser")
+        btn_open_map.setStyleSheet(
+            "background: #2563eb; color: white; padding: 12px 24px; "
+            "font-size: 14px; font-weight: bold;"
+        )
+        btn_open_map.clicked.connect(self.open_map_in_browser)
+        btn_row.addWidget(btn_open_map)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
 
+        self.map_status = QLabel("")
+        self.map_status.setStyleSheet("padding: 8px; color: #10b981;")
+        self.map_status.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.map_status)
+
+        layout.addStretch()
         self.tabs.addTab(tab, "Map")
 
     def _refresh_map(self):
-        """Regenerate the Folium map and load it in the web view."""
+        """Regenerate the Folium map (writes to temp file, user opens in browser)."""
         # Center on Orlando
         m = folium.Map(location=[28.5383, -81.3792], zoom_start=11,
-                       tiles="OpenStreetMap")
+                       tiles="CartoDB positron")
 
         # Add centers
         df = self.ranked
@@ -270,10 +317,20 @@ class MainWindow(QMainWindow):
                 fill_opacity=0.85,
             ).add_to(m)
 
-        # Write to temp HTML file and load
-        tmp = Path(tempfile.gettempdir()) / "uporlando_map.html"
-        m.save(str(tmp))
-        self.map_view.load(QUrl.fromLocalFile(str(tmp)))
+        # Write to temp HTML file (will be opened on demand)
+        self.map_html_path = Path(tempfile.gettempdir()) / "uporlando_map.html"
+        m.save(str(self.map_html_path))
+
+    def open_map_in_browser(self):
+        """Open the currently-generated map in the user's default browser."""
+        import webbrowser
+        if not hasattr(self, "map_html_path") or not self.map_html_path.exists():
+            self._refresh_map()
+        webbrowser.open(self.map_html_path.as_uri())
+        self.map_status.setText(
+            f"✓ Map opened in browser ({len(self.ranked)} centers). "
+            "Re-run Analysis on the Rankings tab to refresh the map with new data."
+        )
 
     # ── Add Site tab ──────────────────────────────────────────────────────────
 
@@ -380,10 +437,20 @@ class MainWindow(QMainWindow):
         # Existing user additions
         existing_group = QGroupBox("User-added centers (from this install)")
         existing_layout = QVBoxLayout(existing_group)
-        self.user_list = QTextEdit()
-        self.user_list.setReadOnly(True)
-        self.user_list.setMaximumHeight(150)
-        existing_layout.addWidget(self.user_list)
+
+        # Scroll area holds dynamic list of user centers with delete buttons
+        from PySide6.QtWidgets import QScrollArea
+        self.user_list_scroll = QScrollArea()
+        self.user_list_scroll.setWidgetResizable(True)
+        self.user_list_scroll.setMaximumHeight(200)
+        self.user_list_container = QWidget()
+        self.user_list_layout = QVBoxLayout(self.user_list_container)
+        self.user_list_layout.setContentsMargins(4, 4, 4, 4)
+        self.user_list_scroll.setWidget(self.user_list_container)
+        existing_layout.addWidget(self.user_list_scroll)
+
+        self._refresh_user_list()
+        main_layout.addWidget(existing_group)
         self._refresh_user_list()
         main_layout.addWidget(existing_group)
 
@@ -391,17 +458,52 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(tab, "Add Site")
 
     def _refresh_user_list(self):
+        """Refresh the list of user-added centers with per-row delete buttons."""
+        # Clear existing rows
+        while self.user_list_layout.count():
+            item = self.user_list_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
         user_df = database.load_user_centers(DB_PATH)
+
         if user_df.empty:
-            self.user_list.setPlainText("No user-added centers yet.")
+            lbl = QLabel("No user-added centers yet.")
+            lbl.setStyleSheet("color: #6b7280; padding: 8px;")
+            self.user_list_layout.addWidget(lbl)
+            self.user_list_layout.addStretch()
             return
-        lines = []
+
         for _, row in user_df.iterrows():
-            lines.append(
-                f"• {row['name']} — added by "
-                f"{row['added_by'] or 'unknown'} at {row['added_at']}"
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(4, 2, 4, 2)
+
+            info = QLabel(
+                f"<b>{row['name']}</b> "
+                f"<span style='color:#6b7280;'>— added by "
+                f"{row['added_by'] or 'unknown'} at {row['added_at']}</span>"
             )
-        self.user_list.setPlainText("\n".join(lines))
+            info.setWordWrap(True)
+            row_layout.addWidget(info, stretch=1)
+
+            btn_delete = QPushButton("Delete")
+            btn_delete.setStyleSheet(
+                "background: #dc2626; color: white; padding: 4px 12px; font-weight: bold;"
+            )
+            btn_delete.setMaximumWidth(80)
+            # Capture id and name in lambda defaults to avoid closure issues
+            cid = int(row["id"])
+            cname = str(row["name"])
+            btn_delete.clicked.connect(
+                lambda checked=False, i=cid, n=cname: self.delete_user_center(i, n)
+            )
+            row_layout.addWidget(btn_delete)
+
+            self.user_list_layout.addWidget(row_widget)
+
+        self.user_list_layout.addStretch()
 
     def submit_new_center(self):
         name = self.add_name.text().strip()
@@ -443,7 +545,29 @@ class MainWindow(QMainWindow):
             f"'{name}' has been added and the analysis has been re-run.\n\n"
             "Check the Rankings tab to see its score."
         )
+        
+    def delete_user_center(self, center_id: int, center_name: str):
+        """Delete a user-added center after confirmation."""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Deletion",
+            f"Delete user-added center '{center_name}'?\n\n"
+            "This only removes it from your local data. "
+            "Original (built-in) community centers cannot be deleted.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
 
+        database.delete_center(DB_PATH, center_id)
+        self._refresh_user_list()
+        self.run_analysis()
+
+        QMessageBox.information(
+            self, "Deleted",
+            f"'{center_name}' has been removed. Analysis has been re-run."
+        )
     # ── About tab ─────────────────────────────────────────────────────────────
 
     def _build_about_tab(self):
