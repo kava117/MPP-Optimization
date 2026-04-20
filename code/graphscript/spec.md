@@ -8,6 +8,8 @@ Two approaches are implemented and intended for side-by-side comparison:
 - A mathematically optimal ILP solver (`domination.py`)
 - A priority-weighted greedy solver that biases selection toward socioeconomically underserved nodes (`priority-domination.py`)
 
+All three transport modes — driving, walking, and public transit — are supported across both solvers, enabling direct comparison of coverage under each mode.
+
 ---
 
 ## Pipeline Overview
@@ -15,20 +17,45 @@ Two approaches are implemented and intended for side-by-side comparison:
 ```
 centers.csv
     │
-    ▼
-csv_to_adjacency.py
+    ├──▶ csv_to_adjacency.py
+    │         ├── driving_matrix.csv
+    │         └── walking_matrix.csv
     │
-    ├── driving_matrix.csv
-    └── walking_matrix.csv
-            │
-            ├──▶ domination.py           (ILP — optimal, size-minimizing)
-            ├──▶ priority-domination.py  (Greedy — equity-weighted)
-            └──▶ keyplayer_viz.py        (Key player analysis — centrality-based)
-                      │
-                      └── keyplayer_analysis.R  (R subprocess — runs kpset)
+    └──▶ transit_centers.csv
+              │
+              ▼
+         transit_csv_to_adjacency.py
+                   └── transit_matrix.csv
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+              ▼                             ▼
+        domination.py              priority-domination.py
+        (ILP — optimal)            (Greedy — equity-weighted)
+              │
+              ▼
+        keyplayer_viz.py
+        (Key player analysis — centrality-based)
+              │
+              └── keyplayer_analysis.R  (R subprocess — runs kpset)
 ```
 
 Each stage is a standalone script. The adjacency CSVs are the only artifact passed between stages.
+
+---
+
+## Images
+
+All output images are organized into subdirectories under `images/`:
+
+| Directory | Contents |
+|---|---|
+| `images/driving/` | Driving graph visualizations (base, MDS, priority MDS) |
+| `images/walking/` | Walking graph visualizations |
+| `images/transit/` | Transit graph visualizations |
+| `images/keyplayer/` | Key player analysis visualizations |
+
+**Edge rendering:** Graphs with fewer than 30 edges (walking, transit) automatically use thicker lines (2× scale, minimum width 2.0) and higher opacity (alpha 0.65) to keep sparse edges visible. Dense graphs (driving) use the default thinner, more transparent style.
 
 ---
 
@@ -54,23 +81,33 @@ Nodes missing `median_income`, `population_size`, or `pop_density` are marked in
 
 ---
 
+### `transit_centers.csv`
+
+Input data for the transit graph. Each row is a bus route edge between two community centers.
+
+**Columns:** `origin_node_id`, `dest_node_id`, `origin_cc_name`, `dest_cc_name`, `route_number`, `route_name`, `line_id`, `origin_stop_name`, `origin_stop_id`, `origin_stop_lat`, `origin_stop_lon`, `walk_to_stop_miles`, `dest_stop_name`, `dest_stop_id`, `dest_stop_lat`, `dest_stop_lon`, `walk_from_stop_miles`, `cc_to_cc_distance_miles`, `total_trip_miles`
+
+The key field is `total_trip_miles` — the full door-to-door trip distance including walking legs to/from stops.
+
+---
+
 ### `csv_to_adjacency.py`
 
-**Role:** Data ingestion and graph construction.
+**Role:** Data ingestion and graph construction for driving and walking modes.
 
 **Inputs:** `centers.csv`
 
 **Outputs:**
 - `driving_matrix.csv` — N×N weighted adjacency matrix (edge weight = driving distance in miles)
 - `walking_matrix.csv` — N×N weighted adjacency matrix (edge weight = walking distance in miles)
-- `driving_graph_spring.png`, `driving_graph_geo.png`
-- `walking_graph_spring.png`, `walking_graph_geo.png`
+- `images/driving/driving_graph_spring.png`, `images/driving/driving_graph_geo.png`
+- `images/walking/walking_graph_spring.png`, `images/walking/walking_graph_geo.png`
 
 **Key parameters (top of file):**
 
 | Constant | Default | Meaning |
 |---|---|---|
-| `DRIVING_THRESHOLD_MILES` | `10.5` | Max driving distance to place an edge |
+| `DRIVING_THRESHOLD_MILES` | `6.86` | Max driving distance to place an edge |
 | `WALKING_THRESHOLD_MILES` | `0.25` | Max walking distance to place an edge |
 | `CSV_PATH` | `"centers.csv"` | Input file |
 
@@ -78,10 +115,39 @@ Nodes missing `median_income`, `population_size`, or `pop_density` are marked in
 1. Loads `centers.csv`, extracts `(lat, lon)` for each node.
 2. Queries the public OSRM routing API (`router.project-osrm.org`) once for driving, once for walking, using the `/table/v1/` endpoint for all-pairs distances in a single request.
 3. Applies threshold filtering — only pairs within the threshold get an edge.
-4. Converts meters to miles and writes both matrices as CSVs with abbreviated node labels as index/column headers.
+4. Converts meters to miles and writes both matrices as CSVs with full center names as index/column headers.
 5. Generates two layout types per graph: spring (force-directed) and geographic (lon/lat as x/y).
 
 **Label format:** Full center names from `centers.csv` are used as row/column headers in the matrix CSVs. Abbreviated visual labels (e.g., `"1: Cal. Nei. Cen."`) are computed at render time inside `draw_graph()` using the `abbreviate_label()` helper and are never persisted to disk.
+
+---
+
+### `transit_csv_to_adjacency.py`
+
+**Role:** Builds a public transit adjacency matrix from a bus route edge list.
+
+**Inputs:** `transit_centers.csv`, `centers.csv`
+
+**Outputs:**
+- `transit_matrix.csv` — N×N weighted adjacency matrix (edge weight = total trip miles)
+
+**Key parameters (top of file):**
+
+| Constant | Default | Meaning |
+|---|---|---|
+| `TRANSIT_CSV` | `"transit_centers.csv"` | Transit edge list input |
+| `CENTERS_CSV` | `"centers.csv"` | Node list source (must match driving/walking matrices) |
+| `OUTPUT_CSV` | `"transit_matrix.csv"` | Output matrix path |
+| `THRESHOLD_MILES` | `3.5` | Max `total_trip_miles` to place an edge |
+
+**How it works:**
+1. Loads `centers.csv` using the same node filtering and ordering logic as `csv_to_adjacency.py`, producing an identical node list.
+2. Loads `transit_centers.csv` and filters to edges within the threshold.
+3. Matches transit center names to node indices via exact then case-insensitive lookup; reports any unmatched names.
+4. Populates an N×N symmetric matrix — if multiple routes connect the same pair, the shortest is kept.
+5. Saves the matrix with full center names as headers (matching the format of driving/walking matrices).
+
+**Class:** `TransitMatrixBuilder`
 
 ---
 
@@ -89,9 +155,12 @@ Nodes missing `median_income`, `population_size`, or `pop_density` are marked in
 
 **Role:** Mathematically optimal MDS via Integer Linear Programming.
 
-**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`
+**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `transit_matrix.csv`
 
-**Outputs:** `driving_graph_spring_mds.png`, `driving_graph_geo_mds.png`, `walking_graph_spring_mds.png`, `walking_graph_geo_mds.png`
+**Outputs** (in respective subdirectories under `images/`):
+- `driving/driving_graph_spring_mds.png`, `driving/driving_graph_geo_mds.png`
+- `walking/walking_graph_spring_mds.png`, `walking/walking_graph_geo_mds.png`
+- `transit/transit_graph_spring_mds.png`, `transit/transit_graph_geo_mds.png`
 
 **Class:** `DominatingSetSolver`
 
@@ -111,9 +180,12 @@ Nodes missing `median_income`, `population_size`, or `pop_density` are marked in
 
 **Role:** Equity-weighted greedy MDS. Selects nodes in descending priority order based on socioeconomic need rather than minimizing set size.
 
-**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `centers.csv`
+**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `transit_matrix.csv`, `weighted_centers.csv`
 
-**Outputs:** `driving_graph_spring_priority_mds.png`, `driving_graph_geo_priority_mds.png`, `walking_graph_spring_priority_mds.png`, `walking_graph_geo_priority_mds.png`
+**Outputs** (in respective subdirectories under `images/`):
+- `driving/driving_graph_spring_priority_mds.png`, `driving/driving_graph_geo_priority_mds.png`
+- `walking/walking_graph_spring_priority_mds.png`, `walking/walking_graph_geo_priority_mds.png`
+- `transit/transit_graph_spring_priority_mds.png`, `transit/transit_graph_geo_priority_mds.png`
 
 **Class:** `PriorityDominatingSetSolver`
 
@@ -136,7 +208,7 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 3. Greedily iterate: if a node or any of its eligible neighbors is not yet dominated, add the node to the dominating set and mark all its neighbors as dominated.
 4. Ineligible (missing-data) nodes are excluded from selection but may be passively dominated if a neighbor is selected.
 
-**Label matching:** Matrix CSV labels are full center names, so `_match_label_to_metadata()` uses an exact `name` column lookup against `centers.csv`. No fuzzy matching is needed.
+**Label matching:** Matrix CSV labels are full center names, so `_match_label_to_metadata()` uses an exact `name` column lookup against `weighted_centers.csv`. No fuzzy matching is needed.
 
 ---
 
@@ -149,8 +221,8 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 **Outputs:**
 - `keyplayer_driving_fragment.csv`, `keyplayer_driving_mreach.csv`
 - `keyplayer_walking_fragment.csv`, `keyplayer_walking_mreach.csv`
-- `images/keyplayer_spring.png` — 2×2 combined figure, spring layout
-- `images/keyplayer_geo.png` — 2×2 combined figure, geographic layout
+- `images/keyplayer/keyplayer_spring.png` — 2×2 combined figure, spring layout
+- `images/keyplayer/keyplayer_geo.png` — 2×2 combined figure, geographic layout
 
 **How it works:**
 
@@ -180,7 +252,7 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 
 **Visualization:** Key players are rendered in a 5-shade red gradient by within-set rank: near-black red (rank 1, most important) through pale pink (rank 5, least important within the set). Non-key-player nodes are orange. A shared legend appears at the bottom of each combined figure.
 
-**Search algorithm:** The `keyplayer` package uses a greedy search with random restarts — not a genetic algorithm. `seed="random"` and `round=50` provide 50 random restarts, which is adequate for a 65-node network. There is no GA option in this package.
+**Search algorithm:** The `keyplayer` package uses a greedy search with random restarts — not a genetic algorithm. `seed="random"` and `round=50` provide 50 random restarts, which is adequate for a 64-node network. There is no GA option in this package.
 
 ---
 
@@ -188,8 +260,8 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 
 **1. `mreach.degree` scores exceed network size — metric is not a unique-node count**
 
-Individual `mreach.degree` scores for some nodes exceed 65 (the total number of nodes). The maximum observed individual score is 90. This is because the default `cmode="total"` sums the *in-degree + out-degree* of all nodes reachable within M hops, not the *count of unique reachable nodes*. As a result:
-- The KPP-Pos set score of 111 (for driving) is inflated and not interpretable as "111 nodes covered."
+Individual `mreach.degree` scores for some nodes exceed 64 (the total number of nodes). The maximum observed individual score is 90. This is because the default `cmode="total"` sums the *in-degree + out-degree* of all nodes reachable within M hops, not the *count of unique reachable nodes*. As a result:
+- The KPP-Pos set score of 110 (for driving) is inflated and not interpretable as "110 nodes covered."
 - Rankings within the key player set are comparisons of the same biased metric, so relative ordering is consistent but absolute scores are not coverage counts.
 - If the intended question is "which 5 centers can serve the most distinct neighborhoods within 2 connections," this metric does not answer it cleanly.
 
@@ -199,7 +271,7 @@ Individual `mreach.degree` scores for some nodes exceed 65 (the total number of 
 
 **2. Near-isolated nodes can be selected by kpset when k exceeds the number of useful nodes**
 
-In the driving KPP-Pos result, two of the five selected nodes (Clarcona Community Center and Orange County Orlando Magic Recreation Center) have out-degree 0 and 1 respectively — they are essentially disconnected from the network. Their individual `kpcent` scores are 0 and 2. They were selected because the greedy algorithm must always return exactly k=5 nodes, filling remaining slots with whatever marginally improves the score even when marginal gain is zero.
+In the driving KPP-Pos result, two of the five selected nodes (Orange County Orlando Magic Recreation Center, Lake Mary Parks & Recreation) have very low individual `kpcent` scores (2 and 18 respectively). They were selected because the greedy algorithm must always return exactly k=5 nodes, filling remaining slots with whatever marginally improves the score even when marginal gain is near zero.
 
 This is a structural issue with any fixed-k key player algorithm on sparse graphs: it cannot signal "fewer than k meaningful key players exist." The driving KPP-Pos results suggest that genuine marginal coverage saturates at approximately 3 nodes; the 4th and 5th selections are noise.
 
@@ -255,18 +327,20 @@ System packages required to compile R dependencies from source (Ubuntu/Debian): 
 
 ## Comparison Methodology
 
-The two solvers are intended to be run on the same adjacency matrices and compared:
+All three solvers run on the same three adjacency matrices and can be compared directly:
 
-- `domination.py` gives the **floor** — the fewest nodes that can cover the graph.
+- `domination.py` gives the **floor** — the fewest nodes that can cover the graph under each transport mode.
 - `priority-domination.py` gives an **equity-adjusted** selection — typically larger, but biased toward nodes serving high-need areas.
+- `keyplayer_viz.py` gives a **structural importance** ranking — independent of coverage, focused on network resilience and reach.
 
-The difference in set size between the two runs quantifies the "equity cost" of the priority approach.
+The difference in dominating set size between the ILP and greedy solvers quantifies the "equity cost" of the priority approach. Comparing results across driving, walking, and transit matrices reveals how coverage changes when different modes of access are assumed.
 
 ---
 
 ## Known Gaps / Future Work
 
 - `centers.csv` is missing the socioeconomic columns required by `priority-domination.py`. All nodes will be marked ineligible until those columns are populated.
-- The three solver scripts share significant boilerplate (`_load_matrix`, `_build_graph`, `_draw_graph`, `abbreviate_label`, geo position logic). If further variants are added, consider extracting a shared utility module.
+- The keyplayer analysis does not yet include transit — it runs on driving and walking matrices only. Extending it to transit would require adding a third matrix pass in both `keyplayer_analysis.R` and `keyplayer_viz.py`.
+- The four solver/viz scripts share significant boilerplate (`_load_matrix`, `_build_graph`, `_draw_graph`, `abbreviate_label`, geo position logic). If further variants are added, consider extracting a shared utility module.
 - The KPP-Pos (`mreach.degree`) metric does not count unique reachable nodes — see concern #1 in the keyplayer section. A custom reach implementation may be needed for a clean coverage interpretation.
 - The fixed-k constraint in `kpset` cannot signal that fewer than k meaningful key players exist. For sparse subgraphs (especially walking), results should be interpreted carefully — see concern #2.
