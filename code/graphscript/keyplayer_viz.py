@@ -299,7 +299,7 @@ def main():
         )
 
         plt.tight_layout(rect=[0, 0.055, 1, 0.978])
-        out_path = f"{OUTPUT_DIR}keyplayer_{layout_name}.png"
+        out_path = f"{OUTPUT_DIR}keyplayer/keyplayer_{layout_name}.png"
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved: {out_path}")

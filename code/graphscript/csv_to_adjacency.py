@@ -126,13 +126,16 @@ def draw_graph(G: nx.Graph, labels: list[str], pos: dict,
     edge_weights = [G[u][v]["weight"] for u, v in G.edges()]
 
     # Normalize edge width by weight (thinner = longer distance)
+    sparse = len(edge_weights) < 30
     if edge_weights:
         max_w = max(edge_weights)
-        widths = [1.5 * (1 - w / (max_w + 0.001)) + 0.5 for w in edge_weights]
+        w_scale, w_min = (2.0, 2.0) if sparse else (1.5, 0.5)
+        widths = [w_scale * (1 - w / (max_w + 0.001)) + w_min for w in edge_weights]
     else:
         widths = [1.0]
 
-    nx.draw_networkx_edges(G, pos, ax=ax, width=widths, alpha=0.5, edge_color="#4a90d9")
+    edge_alpha = 0.65 if sparse else 0.5
+    nx.draw_networkx_edges(G, pos, ax=ax, width=widths, alpha=edge_alpha, edge_color="#4a90d9")
     nx.draw_networkx_nodes(G, pos, ax=ax, node_size=300, node_color="#f0a500", alpha=0.9)
     nx.draw_networkx_labels(G, pos, labels=label_map, ax=ax, font_size=6.5, font_color="#111")
 
@@ -201,19 +204,19 @@ def main():
     # 8. Draw all 4 images
     draw_graph(driving_G, labels, driving_spring_pos,
                f"Driving Graph — Spring Layout (threshold: {DRIVING_THRESHOLD_MILES} mi)",
-               "images/driving_graph_spring.png")
+               "images/driving/driving_graph_spring.png")
 
     draw_graph(driving_G, labels, geo_pos,
                f"Driving Graph — Geographic Layout (threshold: {DRIVING_THRESHOLD_MILES} mi)",
-               "images/driving_graph_geo.png")
+               "images/driving/driving_graph_geo.png")
 
     draw_graph(walking_G, labels, walking_spring_pos,
                f"Walking Graph — Spring Layout (threshold: {WALKING_THRESHOLD_MILES} mi)",
-               "images/walking_graph_spring.png")
+               "images/walking/walking_graph_spring.png")
 
     draw_graph(walking_G, labels, geo_pos,
                f"Walking Graph — Geographic Layout (threshold: {WALKING_THRESHOLD_MILES} mi)",
-               "images/walking_graph_geo.png")
+               "images/walking/walking_graph_geo.png")
 
     print("\nAll done!")
 

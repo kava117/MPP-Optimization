@@ -39,6 +39,7 @@ def abbreviate_label(index: int, name: str) -> str:
 
 DRIVING_MATRIX_CSV = "driving_matrix.csv"
 WALKING_MATRIX_CSV = "walking_matrix.csv"
+TRANSIT_MATRIX_CSV = "transit_matrix.csv"
 METADATA_CSV       = "weighted_centers.csv"
 
 OUTPUT_DIR = "images/"
@@ -83,11 +84,13 @@ class PriorityDominatingSetSolver:
         self,
         driving_csv:  str = DRIVING_MATRIX_CSV,
         walking_csv:  str = WALKING_MATRIX_CSV,
+        transit_csv:  str = TRANSIT_MATRIX_CSV,
         metadata_csv: str = METADATA_CSV,
         output_dir:   str = OUTPUT_DIR,
     ):
         self.driving_csv  = driving_csv
         self.walking_csv  = walking_csv
+        self.transit_csv  = transit_csv
         self.metadata_csv = metadata_csv
         self.output_dir   = output_dir
 
@@ -373,14 +376,17 @@ class PriorityDominatingSetSolver:
                 node_sizes.append(300)
 
         edge_weights = [G[u][v]["weight"] for u, v in edgelist]
+        sparse = len(edge_weights) < 30
         if edge_weights:
             max_w  = max(edge_weights)
-            widths = [1.5 * (1 - w / (max_w + 0.001)) + 0.5 for w in edge_weights]
+            w_scale, w_min = (2.0, 2.0) if sparse else (1.5, 0.5)
+            widths = [w_scale * (1 - w / (max_w + 0.001)) + w_min for w in edge_weights]
         else:
             widths = [1.0]
 
+        edge_alpha = 0.65 if sparse else 0.4
         nx.draw_networkx_edges(G, pos, ax=ax, edgelist=edgelist, width=widths,
-                               alpha=0.4, edge_color=COLOR_EDGE,
+                               alpha=edge_alpha, edge_color=COLOR_EDGE,
                                arrows=True, connectionstyle="arc3,rad=0.0")
         nx.draw_networkx_nodes(G, pos, ax=ax, nodelist=nodelist,
                                node_size=node_sizes, node_color=node_colors, alpha=0.92)
@@ -479,7 +485,8 @@ class PriorityDominatingSetSolver:
         print(f"  {len(meta_df)} metadata rows loaded.")
 
         for mode, csv_path in [("Driving", self.driving_csv),
-                                ("Walking", self.walking_csv)]:
+                                ("Walking", self.walking_csv),
+                                ("Transit", self.transit_csv)]:
 
             print(f"\nLoading {mode} matrix from {csv_path}...")
             adj, labels = self._load_matrix(csv_path)
@@ -535,13 +542,13 @@ class PriorityDominatingSetSolver:
                 G, labels, spring_pos, dominating_set, priorities,
                 title=(f"{mode} Graph - Spring Layout | "
                        f"Priority Greedy Dominating Set ({len(dominating_set)} nodes)"),
-                filepath=f"{self.output_dir}{mode_lower}_graph_spring_priority_mds.png",
+                filepath=f"{self.output_dir}{mode_lower}/{mode_lower}_graph_spring_priority_mds.png",
             )
             self._draw_graph(
                 G, labels, geo_pos, dominating_set, priorities,
                 title=(f"{mode} Graph - Geographic Layout | "
                        f"Priority Greedy Dominating Set ({len(dominating_set)} nodes)"),
-                filepath=f"{self.output_dir}{mode_lower}_graph_geo_priority_mds.png",
+                filepath=f"{self.output_dir}{mode_lower}/{mode_lower}_graph_geo_priority_mds.png",
                 exclude_nodes=geo_missing,
             )
 
