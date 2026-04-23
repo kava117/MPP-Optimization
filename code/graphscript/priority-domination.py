@@ -7,13 +7,12 @@ then finds a greedy dominating set by selecting highest-priority nodes first.
 
 Priority factors (equal weight, each scored 1-3):
     - Median income        (inverted: lower income = higher priority)
-    - Population size      (larger = higher priority)
     - Population density   (denser = higher priority)
     - Food desert score    (more severe = higher priority)
     - Bus stop count       (binary inverted: <5 stops = higher priority)
     - Nearby nodes/degree  (higher degree = higher priority, dynamic bins)
 
-Nodes with missing income/population/density data are skipped.
+Nodes with missing income/density data are skipped.
 Ties in priority are broken by degree (higher degree wins).
 
 Requirements:
@@ -25,6 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import networkx as nx
+import pulp
 
 STOPWORDS = {"of", "the", "and", "at", "in", "a", "an", "for", "to", "by"}
 
@@ -37,16 +37,16 @@ def abbreviate_label(index: int, name: str) -> str:
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-DRIVING_MATRIX_CSV = "driving_matrix.csv"
-WALKING_MATRIX_CSV = "walking_matrix.csv"
-TRANSIT_MATRIX_CSV = "transit_matrix.csv"
-METADATA_CSV       = "weighted_centers.csv"
+DRIVING_MATRIX_CSV = "data/driving_matrix.csv"
+WALKING_MATRIX_CSV = "data/walking_matrix.csv"
+TRANSIT_MATRIX_CSV = "data/transit_matrix.csv"
+METADATA_CSV       = "data/weighted_centers_new.csv"
 
 OUTPUT_DIR = "images/"
 
-# Fixed scoring thresholds
-INCOME_LOW    = 45_000   # < this  -> score 3 (high priority)
-INCOME_MID    = 75_000   # < this  -> score 2, else score 1
+# scoring thresholds
+INCOME_LOW    = 42_000   # meant to capture the poverty line for household of 5  < this  -> score 3 (high priority)
+INCOME_MID    = 70_000   # meant to capture average income for orlando households  < this  -> score 2, else score 1
 
 POP_LOW       = 30_000   # < this  -> score 1
 POP_MID       = 50_000   # < this  -> score 2, else score 3
@@ -54,7 +54,7 @@ POP_MID       = 50_000   # < this  -> score 2, else score 3
 DENSITY_LOW   = 2_000    # < this  -> score 1
 DENSITY_MID   = 5_000    # < this  -> score 2, else score 3
 
-BUS_THRESHOLD = 5        # >= this -> score 1 (good access), else score 3
+BUS_THRESHOLD = 5        # taken from the green grocer paper as a metric or high or low access to public transport  >= this -> score 1 (good access), else score 3
 
 # Node colors
 COLOR_DOMINATING = "#e63946"   # Red    — in the dominating set
@@ -67,17 +67,17 @@ COLOR_EDGE       = "#4a90d9"   # Blue   — edges
 
 class PriorityDominatingSetSolver:
     """
-    Greedy priority-weighted dominating set solver.
+    Priority-weighted minimum dominating set solver (ILP).
 
     Algorithm:
-        1. Score each eligible node across 6 factors (1-3 each, max score 18).
-        2. Sort nodes by score descending; break ties by degree descending.
-        3. Greedily select the highest-priority undominated node, mark it and
-           all its neighbors as dominated, repeat until all eligible nodes
-           are dominated.
-        4. Any skipped (missing-data) nodes are dominated passively — if a
-           neighbor covers them, great; otherwise they remain undominated
-           (flagged in output).
+        1. Score each eligible node across 5 factors (1-3 each, max score 15).
+        2. Solve an ILP that minimises set size as the primary objective and
+           maximises total priority score as a lexicographic tiebreaker.
+           This guarantees the smallest possible dominating set; among all
+           sets of that size the one with the highest cumulative priority
+           is returned.
+        3. Ineligible (missing-data) nodes are excluded from selection but
+           still require domination coverage — a neighbour must cover them.
     """
 
     def __init__(
@@ -124,8 +124,8 @@ class PriorityDominatingSetSolver:
         df = df.rename(columns=col_map)
 
         # Keep only the columns we need
-        keep = ["name", "lat", "lon", "median_income", "population_size",
-                 "pop_density", "food_desert_score", "bus_stop_count"]
+        keep = ["name", "lat", "lon", "median_income",
+                "pop_density", "food_desert_score", "bus_stop_count"]
         df = df[[c for c in keep if c in df.columns]].copy()
         return df
 
@@ -165,6 +165,8 @@ class PriorityDominatingSetSolver:
             return 2
         return 1
 
+    # INERT: no longer accounting for population and also density as to not
+    # double count. only density will be used from now on
     def _score_population(self, val) -> int:
         if pd.isna(val):
             return None
@@ -249,21 +251,20 @@ class PriorityDominatingSetSolver:
 
             # Score each factor
             s_income  = self._score_income(meta.get("median_income"))
-            s_pop     = self._score_population(meta.get("population_size"))
             s_density = self._score_density(meta.get("pop_density"))
             s_food    = self._score_food_desert(meta.get("food_desert_score"))
             s_bus     = self._score_bus_stops(meta.get("bus_stop_count"))
             s_degree  = self._score_degree(degree, all_degrees)
 
             # Skip if any core continuous factor is missing
-            if any(s is None for s in [s_income, s_pop, s_density]):
+            if any(s is None for s in [s_income, s_density]):
                 priorities[i] = {
                     "score": 0, "degree": degree,
                     "eligible": False, "breakdown": {}, "name": label
                 }
                 continue
 
-            total = s_income + s_pop + s_density + s_food + s_bus + s_degree
+            total = s_income + s_density + s_food + s_bus + s_degree
             priorities[i] = {
                 "score": total,
                 "degree": degree,
@@ -271,7 +272,6 @@ class PriorityDominatingSetSolver:
                 "name": label,
                 "breakdown": {
                     "income":      s_income,
-                    "population":  s_pop,
                     "density":     s_density,
                     "food_desert": s_food,
                     "bus_stops":   s_bus,
@@ -281,50 +281,55 @@ class PriorityDominatingSetSolver:
 
         return priorities
 
-    # ── Greedy solver ─────────────────────────────────────────────────────────
+    # ── ILP solver ────────────────────────────────────────────────────────────
 
-    def _greedy_priority_mds(
+    def _ilp_priority_mds(
         self,
         adj: np.ndarray,
         priorities: dict[int, dict],
     ) -> list[int]:
         """
-        Greedy priority-first dominating set algorithm.
+        Exact priority-weighted minimum dominating set via ILP.
 
-        Selects eligible nodes in descending priority order (ties broken by
-        degree). A node is selected if it or any of its neighbors is not yet
-        dominated. Continues until all eligible nodes are dominated.
-        Ineligible (missing-data) nodes are dominated passively.
+        Objective (lexicographic):
+            Primary   — minimise |dominating set|
+            Secondary — maximise sum of priority scores in the set
+
+        Implemented as a single weighted objective:
+            minimise  sum(x_i) - epsilon * sum(score_i * x_i)
+        where epsilon is small enough that the priority term can never
+        increase the set size beyond the true minimum.
         """
         n = adj.shape[0]
-        dominated = set()
-        dominating_set = []
-
-        # Sort eligible nodes by (score desc, degree desc)
-        eligible = [
-            i for i, p in priorities.items() if p["eligible"]
-        ]
-        eligible_sorted = sorted(
-            eligible,
-            key=lambda i: (priorities[i]["score"], priorities[i]["degree"]),
-            reverse=True,
-        )
-
-        # Pre-dominate ineligible nodes so they don't block the algorithm
-        # (they will be dominated if a neighbor is selected, otherwise flagged)
         ineligible = {i for i, p in priorities.items() if not p["eligible"]}
 
-        for i in eligible_sorted:
-            neighbors = {j for j in range(n) if adj[i][j] > 0}
-            coverage  = {i} | neighbors
+        prob = pulp.LpProblem("priority_mds", pulp.LpMinimize)
+        x = [pulp.LpVariable(f"x_{i}", cat="Binary") for i in range(n)]
 
-            # Check if this node or any eligible neighbor is still undominated
-            uncovered_eligible = (coverage - dominated) - ineligible
-            if uncovered_eligible:
-                dominating_set.append(i)
-                dominated |= coverage
+        # Ineligible nodes cannot be selected
+        for i in ineligible:
+            prob += x[i] == 0
 
-        return dominating_set
+        # Every node must be dominated (covered by itself or a neighbour)
+        for i in range(n):
+            neighbours = [j for j in range(n) if adj[i][j] > 0]
+            prob += x[i] + pulp.lpSum(x[j] for j in neighbours) >= 1
+
+        # Weighted objective: minimise size, break ties by maximising priority.
+        # epsilon < 1 / (n * max_score) ensures priority never inflates set size.
+        max_score = max((p["score"] for p in priorities.values()), default=1)
+        epsilon = 1.0 / (n * max_score + 1)
+        prob += (
+            pulp.lpSum(x[i] for i in range(n))
+            - epsilon * pulp.lpSum(priorities[i]["score"] * x[i] for i in range(n))
+        )
+
+        prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+        if prob.status != 1:
+            raise RuntimeError(f"ILP did not find an optimal solution (status={prob.status})")
+
+        return [i for i in range(n) if pulp.value(x[i]) > 0.5]
 
     # ── Graph building ────────────────────────────────────────────────────────
 
@@ -465,9 +470,9 @@ class PriorityDominatingSetSolver:
             p = priorities[i]
             bd = p["breakdown"]
             breakdown_str = (
-                f"inc={bd['income']} pop={bd['population']} "
-                f"den={bd['density']} food={bd['food_desert']} "
-                f"bus={bd['bus_stops']} deg={bd['degree']}"
+                f"inc={bd['income']} den={bd['density']} "
+                f"food={bd['food_desert']} bus={bd['bus_stops']} "
+                f"deg={bd['degree']}"
             )
             print(f"  {i+1:<4} {labels[i]:<35} {p['score']:>5} {p['degree']:>4}  {breakdown_str}")
 
@@ -501,7 +506,7 @@ class PriorityDominatingSetSolver:
             print(f"  Eligible: {eligible_count}  |  Skipped (missing data): {skipped_count}")
 
             print(f"Running greedy priority dominating set ({mode})...")
-            dominating_set = self._greedy_priority_mds(adj, priorities)
+            dominating_set = self._ilp_priority_mds(adj, priorities)
 
             self._print_stats(mode, adj, labels, dominating_set, priorities)
 
