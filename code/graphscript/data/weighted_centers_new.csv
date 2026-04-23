@@ -1,0 +1,53 @@
+name,zip_code,address,lat,lon,bus_stop_count,Median_Income,Population_Size,Pop_Density_per_sqmi,food_desert_score
+Callahan Neighborhood Center,32801,"101 N Parramore Ave #1713, Orlando, FL 32801",28.544315,-81.388554,15,80871,17728,8021.72,1
+Colonialtown Neighborhood Center,32803,"1517 Lake Highland Dr #2605, Orlando, FL 32803",28.561785,-81.360998,2,75474,20148,2602.0,0
+Mayor Carl T. Langford Neighborhood Center,32803,"1808 E Central Blvd, Orlando, FL 32803",28.54261,-81.357607,0,75474,20148,2602.0,1
+College Park Neighborhood Center,32804,"2393 Elizabeth Ave #5409, Orlando, FL 32804",28.573032,-81.38433,2,79707,18023,2231.0,0
+Grand Avenue Neighborhood Center,32805,"800 Grand St, Orlando, FL 32805",28.525588,-81.390461,6,40515,23331,3428.51,1
+John H. Jackson Neighborhood Center,32805,"1002 Carter St, Orlando, FL 32805",28.533592,-81.394307,11,40515,23331,3428.51,0
+Holden Heights Community Center,32805,"1201 20th St, Orlando, FL 32805",28.521399,-81.395821,4,40515,23331,3428.51,1
+Dr. James R. Smith Neighborhood Center,32805,"1723 Bruton Blvd, Orlando, FL 32805",28.520821,-81.425238,8,40515,23331,3428.51,1
+Rock Lake Neighborhood Center,32805,"440 N Tampa Ave, Orlando, FL 32805",28.548535,-81.407758,0,40515,23331,3428.51,0
+Wadeview Community Center,32806,"2177 S Summerlin Ave, Orlando, FL 32806",28.516997,-81.367405,0,89046,26582,3894.8,0
+Engelwood Neighborhood Center,32807,"6123 La Costa Dr #2931, Orlando, FL 32807",28.528924,-81.300776,5,59971,34384,4093.33,1
+Northwest Neighborhood Center,32808,"3955 W D Judge Dr, Orlando, FL 32808",28.560761,-81.427525,11,49700,52551,4424.6,2
+Pine Hills Community Center,32818,"6408 Jennings Rd, Orlando, FL 32818",28.566197,-81.468737,4,63061,48052,4317.73,1
+Rosemont Community Center,32808,"4872 Rose Bay Dr, Orlando, FL 32808",28.601504,-81.439778,4,49700,52551,4424.6,2
+Pine Hills Neighborhood Center for Families,32808,"2804 Belco Dr, Orlando, FL 32808",28.580385,-81.45452,13,49700,52551,4424.6,2
+Oak Ridge Neighborhood Center,32809,"150 Amidon Ln, Orlando, FL 32809",28.459962,-81.376891,0,57879,29478,2838.24,1
+Dover Shores Community Center,32812,"1400 Gaston Foster Rd, Orlando, FL 32812",28.525598,-81.325952,4,73149,34586,4061.3,1
+Orlo Vista Park,32835,"1 N Powers Dr, Orlando, FL 32835",28.541999,-81.466234,0,71418,45380,4830.74,1
+Meadow Woods Recreation Center,32824,"1751 Rhode Island Woods Cir, Orlando, FL 32824",28.372903,-81.345501,2,84841,57412,1714.0,0
+South Econ Community Park,32829,"3800 S Econlockhatchee Trail, Orlando, FL 32829",28.496519,-81.25697,0,75563,20376,1073.0,0
+Big Hawk Recreation Center,32837,"13709 Hawk Lake Dr, Orlando, FL 32837",28.362185,-81.392825,0,88848,56813,3116.97,0
+Downtown Recreation Complex,32801,"363 N Parramore Ave, Orlando, FL 32801",28.547074,-81.38842,12,80871,17728,8021.72,1
+Silver Star Recreation Center,32818,"2801 N Apopka Vineland Rd, Orlando, FL 32818",28.581763,-81.490996,0,63061,48052,4317.73,1
+Orlando Magic Recreation Center,32792,"4863 N Goldenrod Rd, Winter Park, FL 32792",28.61011,-81.283412,0,69200,51376,4240.69,0
+Blue Jacket Park,32814,"2501 General Rees Ave, Orlando, FL 32814",28.576017,-81.338185,4,94581,8021,5311.0,0
+Cypress Grove Park,32839,"290 Holden Ave, Orlando, FL 32839",28.492034,-81.378371,0,47313,58641,7893.53,0
+Lake Lorna Doone Park,32805,"1519 W Church St, Orlando, FL 32805",28.541152,-81.400406,14,40515,23331,3428.51,0
+Lake Underhill Park,32803,"4355 Lake Underhill Rd, Orlando, FL 32803",28.537611,-81.332758,8,75474,20148,2602.0,0
+Eagle Nest Park,32811,"5165 Metrowest Blvd, Orlando, FL 32811",28.517079,-81.449704,0,54082,42274,5089.57,1
+George Barker Park,32805,"2000 Monte Carlo Trail, Orlando, FL 32805",28.52949,-81.406262,4,40515,23331,3428.51,1
+Gilbert McQueen Park,32805,"650 W Lake Mann Dr, Orlando, FL 32805",28.532873,-81.423187,1,40515,23331,3428.51,1
+Gaston Edwards Park,32804,"1236 N Orange Ave, Orlando, FL 32804",28.561602,-81.374001,2,79707,18023,2231.0,0
+Lila Mitchell Ivey Lane Neighborhood Center for Families,32811,"5151 Raleigh St Ste C, Orlando, FL 32811",28.528435,-81.448241,4,54082,42274,5089.57,2
+Ivey Lane Park,32811,"291 Silverton St #1745, Orlando, FL 32811",28.545245,-81.438087,8,54082,42274,5089.57,2
+South Trail Branch Library,32839,"4600 S Orange Blossom Trl, Orlando, FL 32839",28.497142,-81.399279,10,47313,58641,7893.53,1
+Washington Park Branch Library,32811,"5151 Raleigh St A, Orlando, FL 32811",28.528147,-81.448348,4,54082,42274,5089.57,2
+Southeast Branch Library,32822,"5575 S Semoran Blvd Suite 46, Orlando, FL 32822",28.48123,-81.307318,3,56540,64120,4713.32,1
+Fairview Shores Branch Library,32810,"902 Lee Rd #26, Orlando, FL 32810",28.604603,-81.394814,4,60799,35925,3918.52,0
+Chickasaw Branch Library,32825,"870 N Chickasaw Trail, Orlando, FL 32825",28.555214,-81.278508,3,61236,61289,2649.0,2
+Southwest Branch Library,32819,"7255 Della Dr, Orlando, FL 32819",28.455832,-81.489724,0,98109,30857,1493.13,0
+Ocoee Lakeshore Center,34761,"125 N Lakeshore Dr, Ocoee, FL 34761",28.571179,-81.542968,0,96415,48193,2760.99,0
+Eastmonte Park,32701,"830 Magnolia Dr, Altamonte Springs, FL 32701",28.656298,-81.360251,0,62198,23265,4129.39,0
+Westmonte Park,32714,"624 Bills Ln, Altamonte Springs, FL 32714",28.669113,-81.408074,0,70955,38049,4483.74,0
+John Bridges Community Center,32703,"445 W 13th St, Apopka, FL 32703",28.662602,-81.520217,3,72880,54805,1707.16,0
+Winter Springs Civic Center,32708,"400 N Edgemon Ave, Winter Springs, FL 32708",28.70485,-81.308943,0,93628,47045,2542.84,0
+Lake Mary Community Center,32746,"140 E Wilbur Ave, Lake Mary, FL 32746",28.760086,-81.321065,0,104775,45828,2175.76,0
+Denton Johnson Community Center,32751,"400 Ruffel St, Eatonville, FL 32751",28.614603,-81.378197,0,95387,23230,3309.59,2
+Minnehaha Park,32751,"1011 E Horatio Ave, Maitland, FL 32751",28.627699,-81.355991,0,95387,23230,3309.59,0
+Maitland Senior Center,32751,"345 Maitland Ave S, Maitland, FL 32751",28.625067,-81.366095,5,95387,23230,3309.59,0
+Oviedo Recreation & Parks,32765,"148 Oviedo Blvd, Oviedo, FL 32765",28.667682,-81.201837,0,102167,65228,1671.74,0
+Winter Park Community Center,32789,"721 W New England Ave, Winter Park, FL 32789",28.596135,-81.357958,7,106671,26399,3384.05,0
+Azalea Lane Recreation Center,32789,"1045 Azalea Ln, Winter Park, FL 32789",28.588782,-81.358976,4,106671,26399,3384.05,0
