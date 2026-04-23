@@ -32,9 +32,9 @@ import pandas as pd
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-DRIVING_MATRIX_CSV = "driving_matrix.csv"
-WALKING_MATRIX_CSV = "walking_matrix.csv"
-METADATA_CSV       = "weighted_centers.csv"
+DRIVING_MATRIX_CSV = "data/driving_matrix.csv"
+WALKING_MATRIX_CSV = "data/walking_matrix.csv"
+METADATA_CSV       = "data/weighted_centers_new.csv"
 R_SCRIPT           = "keyplayer_analysis.R"
 OUTPUT_DIR         = "images/"
 K                  = 5
@@ -152,16 +152,9 @@ def draw_panel(
         if u not in exclude_nodes and v not in exclude_nodes
     ]
 
-    node_colors = []
-    node_sizes  = []
-    for i in nodelist:
-        rank = kp_rank_map.get(labels[i])
-        if rank is not None:
-            node_colors.append(KP_RANK_COLORS[rank - 1])
-            node_sizes.append(650)
-        else:
-            node_colors.append(COLOR_REGULAR)
-            node_sizes.append(280)
+    regular_nodes = [i for i in nodelist if kp_rank_map.get(labels[i]) is None]
+    kp_nodes      = [i for i in nodelist if kp_rank_map.get(labels[i]) is not None]
+    kp_colors     = [KP_RANK_COLORS[kp_rank_map[labels[i]] - 1] for i in kp_nodes]
 
     edge_weights = [G[u][v]["weight"] for u, v in edgelist]
     if edge_weights:
@@ -176,13 +169,22 @@ def draw_panel(
         G, pos, ax=ax, edgelist=edgelist,
         width=widths, alpha=0.35, edge_color=COLOR_EDGE,
     )
+    # Draw regular nodes first, then key players on top so they are never obscured
     nx.draw_networkx_nodes(
-        G, pos, ax=ax, nodelist=nodelist,
-        node_size=node_sizes, node_color=node_colors, alpha=0.92,
+        G, pos, ax=ax, nodelist=regular_nodes,
+        node_size=280, node_color=COLOR_REGULAR, alpha=0.92,
+    )
+    nx.draw_networkx_nodes(
+        G, pos, ax=ax, nodelist=kp_nodes,
+        node_size=650, node_color=kp_colors, alpha=0.92,
     )
     nx.draw_networkx_labels(
-        G, pos, labels=label_map, ax=ax,
+        G, pos, labels={i: label_map[i] for i in regular_nodes}, ax=ax,
         font_size=5.5, font_color="#111",
+    )
+    nx.draw_networkx_labels(
+        G, pos, labels={i: label_map[i] for i in kp_nodes}, ax=ax,
+        font_size=5.5, font_color="#111", font_weight="bold",
     )
 
     for u, v in edgelist:
@@ -249,7 +251,7 @@ def main():
     for matrix in ("driving", "walking"):
         for kp_type in ("fragment", "mreach"):
             kp_results[(matrix, kp_type)] = load_kp_result(
-                f"keyplayer_{matrix}_{kp_type}.csv"
+                f"data/keyplayer_{matrix}_{kp_type}.csv"
             )
 
     # Panel definitions: (row, col, matrix, kp_type, G, labels, spring_pos, geo_pos, geo_missing)

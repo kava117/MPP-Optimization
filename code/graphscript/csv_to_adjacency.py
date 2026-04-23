@@ -18,12 +18,12 @@ import networkx as nx
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-CSV_PATH = "centers.csv"          # Path to your input CSV
+CSV_PATH = "data/centers_new.csv"          # Path to your input CSV
 DRIVING_THRESHOLD_MILES = 6.86       # Max driving distance to create an edge
 WALKING_THRESHOLD_MILES = 0.25      # Max walking distance to create an edge
 
-OUTPUT_DRIVING_CSV = "driving_matrix.csv"
-OUTPUT_WALKING_CSV = "walking_matrix.csv"
+OUTPUT_DRIVING_CSV = "data/driving_matrix.csv"
+OUTPUT_WALKING_CSV = "data/walking_matrix.csv"
 
 METERS_PER_MILE = 1609.344
 

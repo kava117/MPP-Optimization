@@ -5,15 +5,12 @@
 # Borgatti 2006).
 #
 # Search strategy: greedy with random restarts (seed="random", round=50).
-# This is the package's built-in optimizer — there is no GA option.
 #
 # KPP-Neg → type="fragment", method="min"
 #   Nodes whose removal most fragments the network.
 #
 # KPP-Pos → type="mreach.degree", method="max", M=2
 #   Nodes that collectively reach the most other nodes within 2 hops.
-#   M=2 is meaningful here: "which centers can serve neighbors within
-#   2 connections?" With M=Inf on a connected graph all nodes tie at n-1.
 #
 # Outputs 4 CSVs:
 #   keyplayer_{matrix}_{type}.csv  (columns: name, rank, centrality_score)
@@ -106,15 +103,15 @@ run_scenario <- function(mat, scenario, matrix_label) {
 }
 
 matrices <- list(
-  list(csv = "driving_matrix.csv", label = "driving"),
-  list(csv = "walking_matrix.csv", label = "walking")
+  list(csv = "data/driving_matrix.csv", label = "driving"),
+  list(csv = "data/walking_matrix.csv", label = "walking")
 )
 
 for (m in matrices) {
   mat <- read_matrix(m$csv)
   for (sc in SCENARIOS) {
     result   <- run_scenario(mat, sc, m$label)
-    out_file <- sprintf("keyplayer_%s_%s.csv", m$label, sc$label)
+    out_file <- sprintf("data/keyplayer_%s_%s.csv", m$label, sc$label)
     write.csv(result, out_file, row.names = FALSE)
     cat(sprintf("  Saved: %s\n", out_file))
   }

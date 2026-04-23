@@ -26,9 +26,9 @@ def abbreviate_label(index: int, name: str) -> str:
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
  
-DRIVING_MATRIX_CSV = "driving_matrix.csv"
-WALKING_MATRIX_CSV = "walking_matrix.csv"
-TRANSIT_MATRIX_CSV = "transit_matrix.csv"
+DRIVING_MATRIX_CSV = "data/driving_matrix.csv"
+WALKING_MATRIX_CSV = "data/walking_matrix.csv"
+TRANSIT_MATRIX_CSV = "data/transit_matrix.csv"
  
 OUTPUT_DIR = "images/"
  

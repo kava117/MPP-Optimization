@@ -28,9 +28,9 @@ import numpy as np
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-TRANSIT_CSV      = "transit_centers.csv"
-CENTERS_CSV      = "centers.csv"           # Same source CSV used by csv_to_adjacency.py
-OUTPUT_CSV       = "transit_matrix.csv"
+TRANSIT_CSV      = "data/transit_centers.csv"
+CENTERS_CSV      = "data/centers_new.csv"        # Same source CSV used by csv_to_adjacency.py
+OUTPUT_CSV       = "data/transit_matrix.csv"
 THRESHOLD_MILES  = 3.5                     # Max total_trip_miles to create an edge
 
 STOPWORDS = {"of", "the", "and", "at", "in", "a", "an", "for", "to", "by"}
