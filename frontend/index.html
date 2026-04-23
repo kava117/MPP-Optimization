@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FoodReach — Mobile Market Optimizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      
+      <span class="logo-text">MPP Optimization</span>
+      <span class="logo-sub">Central Florida Mobile Market Optimizer</span>
+    </div>
+    <div class="header-status" id="headerStatus">
+      <span class="pulse-dot"></span> Ready
+    </div>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- ── Left Panel ── -->
+    <aside class="panel panel-controls">
+
+      <section class="panel-section">
+        <h3 class="section-label">Transport Mode</h3>
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="driving" onclick="setMode('driving')">
+            <span>🚗</span> Driving
+          </button>
+          <button class="mode-btn" data-mode="walking" onclick="setMode('walking')">
+            <span>🚶</span> Walking
+          </button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h3 class="section-label">Algorithm</h3>
+        <div class="algo-toggle">
+          <label class="toggle-row">
+            <input type="radio" name="algo" value="ilp" checked onchange="setAlgo('ilp')"/>
+            <span class="toggle-label">
+              <strong>ILP Exact</strong>
+              <small>Minimum possible stops (exact)</small>
+            </span>
+          </label>
+          <label class="toggle-row">
+            <input type="radio" name="algo" value="priority" onchange="setAlgo('priority')"/>
+            <span class="toggle-label">
+              <strong>Priority Weighted</strong>
+              <small>Prefers underserved areas</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h3 class="section-label">
+          ZIP Codes
+          <button class="link-btn" onclick="toggleAllZips()">Toggle All</button>
+        </h3>
+        <div class="zip-search">
+          <input type="text" id="zipSearch" placeholder="Filter ZIPs…" oninput="filterZipList(this.value)"/>
+        </div>
+        <div class="zip-list" id="zipList">
+          <div class="zip-loading">Loading…</div>
+        </div>
+      </section>
+
+      <div class="run-section">
+        <button class="run-btn" id="runBtn" onclick="runOptimization()">
+          <span>▶</span> Run Optimization
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ── Map ── -->
+    <main class="map-wrapper">
+      <div id="map"></div>
+
+      <div class="map-controls">
+        <button class="map-ctrl-btn active" id="toggleZips"     onclick="toggleLayer('zips')">ZIP Boundaries</button>
+        <button class="map-ctrl-btn active" id="toggleCenters"  onclick="toggleLayer('centers')">All Centers</button>
+        <button class="map-ctrl-btn active" id="toggleEdges"    onclick="toggleLayer('edges')">Coverage Lines</button>
+        <button class="map-ctrl-btn"        id="toggleSelected" onclick="showRadiusPreview()">Radius Preview</button>
+      </div>
+
+      <div class="map-legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#1a1f6e;box-shadow:0 0 0 3px #1a1f6e55"></span>Selected Stop</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#2dc98a"></span>Covered Center</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f0a500"></span>Candidate</div>
+        <div class="legend-item"><span class="legend-sq" style="background:#2dc98a22;border-color:#2dc98a"></span>ZIP Covered</div>
+        <div class="legend-item"><span class="legend-sq" style="background:#ff6b6b22;border-color:#e63946"></span>ZIP Uncovered</div>
+      </div>
+
+      <div class="map-loading" id="mapLoading">
+        <div class="spinner"></div>
+        <p>Running optimization…</p>
+      </div>
+    </main>
+
+    <!-- ── Right Panel ── -->
+    <aside class="panel panel-results">
+
+      <div class="results-placeholder" id="resultsPlaceholder">
+        <div class="placeholder-icon">⬡</div>
+        <p>Configure settings and run the optimizer to see results here.</p>
+      </div>
+
+      <div class="results-content hidden" id="resultsContent">
+
+        <div class="stat-grid">
+          <div class="stat-card accent">
+            <div class="stat-num" id="statStops">—</div>
+            <div class="stat-lbl">Optimal Stops</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statCoverage">—</div>
+            <div class="stat-lbl">Coverage Rate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statZips">—</div>
+            <div class="stat-lbl">ZIPs Covered</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statMode">—</div>
+            <div class="stat-lbl">Mode</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statRadius">—</div>
+            <div class="stat-lbl">Radius</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statAlgoLabel">—</div>
+            <div class="stat-lbl">Algorithm</div>
+          </div>
+        </div>
+
+        <div class="coverage-bar-wrap">
+          <div class="coverage-bar-track">
+            <div class="coverage-bar-fill" id="coverageBarFill"></div>
+          </div>
+          <span class="coverage-bar-label" id="coverageBarLabel"></span>
+        </div>
+
+        <div class="result-section">
+          <h4 class="result-section-title">Covered ZIP Codes</h4>
+          <div class="zip-chips" id="coveredZipChips"></div>
+          <div id="uncoveredZipsWrap"></div>
+        </div>
+
+        <div class="result-section">
+          <h4 class="result-section-title">
+            Selected Stop Locations
+            <button class="link-btn" onclick="exportResults()" style="font-size:11px">↓ Export CSV</button>
+          </h4>
+          <div class="stops-list" id="stopsList"></div>
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
