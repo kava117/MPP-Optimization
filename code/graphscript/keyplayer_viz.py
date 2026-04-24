@@ -38,6 +38,7 @@ METADATA_CSV       = "data/weighted_centers_new.csv"
 R_SCRIPT           = "keyplayer_analysis.R"
 OUTPUT_DIR         = "images/"
 K                  = 5
+HIGH_RES_DPI       = 300
 
 # Rank 1 (most important) → index 0, rank 5 → index 4
 KP_RANK_COLORS = [
@@ -303,6 +304,38 @@ def main():
         plt.tight_layout(rect=[0, 0.055, 1, 0.978])
         out_path = f"{OUTPUT_DIR}keyplayer/keyplayer_{layout_name}.png"
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"Saved: {out_path}")
+
+    # Individual high-res driving spring panels
+    individual_panels = [
+        ("fragment", "neg", "KPP-Neg  |  Fragmentation"),
+        ("mreach",   "pos", "KPP-Pos  |  M-Reach (2 hops)"),
+    ]
+    for kp_type, suffix, col_header in individual_panels:
+        fig, ax = plt.subplots(figsize=(14, 10))
+        fig.suptitle(
+            f"Driving Network  —  {col_header}  (Spring Layout)",
+            fontsize=13, fontweight="bold",
+        )
+        draw_panel(
+            ax, driving_G, driving_labels, driving_spring,
+            kp_rank_map=kp_results[("driving", kp_type)],
+            title=f"Driving Network  —  {col_header}",
+        )
+        legend_patches = build_legend(K)
+        fig.legend(
+            handles=legend_patches,
+            loc="lower center",
+            ncol=K + 1,
+            fontsize=9,
+            framealpha=0.92,
+            edgecolor="#ccc",
+            bbox_to_anchor=(0.5, 0.005),
+        )
+        plt.tight_layout(rect=[0, 0.055, 1, 0.978])
+        out_path = f"{OUTPUT_DIR}keyplayer/driving_spring_{suffix}.png"
+        plt.savefig(out_path, dpi=HIGH_RES_DPI, bbox_inches="tight")
         plt.close()
         print(f"Saved: {out_path}")
 
