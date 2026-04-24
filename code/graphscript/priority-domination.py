@@ -10,7 +10,9 @@ Priority factors (equal weight, each scored 1-3):
     - Population density   (denser = higher priority)
     - Food desert score    (more severe = higher priority)
     - Bus stop count       (binary inverted: <5 stops = higher priority)
-    - Nearby nodes/degree  (higher degree = higher priority, dynamic bins)
+    # Degree was removed: the ILP's minimize-|S| objective already biases toward
+    # high-degree nodes structurally. Including it in the score double-counts that
+    # preference and systematically penalizes isolated high-need communities.
 
 Nodes with missing income/density data are skipped.
 Ties in priority are broken by degree (higher degree wins).
@@ -202,17 +204,21 @@ class PriorityDominatingSetSolver:
             return 3   # unknown -> assume low access
         return 1 if float(val) >= BUS_THRESHOLD else 3
 
-    def _score_degree(self, degree: int, all_degrees: list[int]) -> int:
-        """Bin degree dynamically into thirds of the degree distribution."""
-        sorted_d = sorted(all_degrees)
-        n = len(sorted_d)
-        low_thresh  = sorted_d[n // 3]
-        high_thresh = sorted_d[(2 * n) // 3]
-        if degree <= low_thresh:
-            return 1
-        elif degree <= high_thresh:
-            return 2
-        return 3
+    # Degree scoring removed: the MDS ILP minimises set size as its primary objective,
+    # which already favours high-degree nodes because they satisfy more domination
+    # constraints at once. Adding degree to the priority score double-counts that
+    # structural advantage and biases tiebreaking against isolated but high-need nodes —
+    # the opposite of the equity goal this algorithm is meant to serve.
+    # def _score_degree(self, degree: int, all_degrees: list[int]) -> int:
+    #     sorted_d = sorted(all_degrees)
+    #     n = len(sorted_d)
+    #     low_thresh  = sorted_d[n // 3]
+    #     high_thresh = sorted_d[(2 * n) // 3]
+    #     if degree <= low_thresh:
+    #         return 1
+    #     elif degree <= high_thresh:
+    #         return 2
+    #     return 3
 
     def _compute_priorities(
         self,
@@ -254,7 +260,7 @@ class PriorityDominatingSetSolver:
             s_density = self._score_density(meta.get("pop_density"))
             s_food    = self._score_food_desert(meta.get("food_desert_score"))
             s_bus     = self._score_bus_stops(meta.get("bus_stop_count"))
-            s_degree  = self._score_degree(degree, all_degrees)
+            # s_degree removed: see _score_degree comment above.
 
             # Skip if any core continuous factor is missing
             if any(s is None for s in [s_income, s_density]):
@@ -264,7 +270,7 @@ class PriorityDominatingSetSolver:
                 }
                 continue
 
-            total = s_income + s_density + s_food + s_bus + s_degree
+            total = s_income + s_density + s_food + s_bus
             priorities[i] = {
                 "score": total,
                 "degree": degree,
@@ -275,7 +281,6 @@ class PriorityDominatingSetSolver:
                     "density":     s_density,
                     "food_desert": s_food,
                     "bus_stops":   s_bus,
-                    "degree":      s_degree,
                 }
             }
 
@@ -451,7 +456,7 @@ class PriorityDominatingSetSolver:
                 undominated_skipped.append(i)
 
         print(f"\n{'-'*60}")
-        print(f"  {mode.upper()} - Priority Greedy Dominating Set")
+        print(f"  {mode.upper()} - Priority ILP Dominating Set")
         print(f"{'-'*60}")
         print(f"  Total nodes:            {n}")
         print(f"  Total edges:            {edges}")
@@ -471,8 +476,7 @@ class PriorityDominatingSetSolver:
             bd = p["breakdown"]
             breakdown_str = (
                 f"inc={bd['income']} den={bd['density']} "
-                f"food={bd['food_desert']} bus={bd['bus_stops']} "
-                f"deg={bd['degree']}"
+                f"food={bd['food_desert']} bus={bd['bus_stops']}"
             )
             print(f"  {i+1:<4} {labels[i]:<35} {p['score']:>5} {p['degree']:>4}  {breakdown_str}")
 
@@ -546,13 +550,13 @@ class PriorityDominatingSetSolver:
             self._draw_graph(
                 G, labels, spring_pos, dominating_set, priorities,
                 title=(f"{mode} Graph - Spring Layout | "
-                       f"Priority Greedy Dominating Set ({len(dominating_set)} nodes)"),
+                       f"Priority ILP Dominating Set ({len(dominating_set)} nodes)"),
                 filepath=f"{self.output_dir}{mode_lower}/{mode_lower}_graph_spring_priority_mds.png",
             )
             self._draw_graph(
                 G, labels, geo_pos, dominating_set, priorities,
                 title=(f"{mode} Graph - Geographic Layout | "
-                       f"Priority Greedy Dominating Set ({len(dominating_set)} nodes)"),
+                       f"Priority ILP Dominating Set ({len(dominating_set)} nodes)"),
                 filepath=f"{self.output_dir}{mode_lower}/{mode_lower}_graph_geo_priority_mds.png",
                 exclude_nodes=geo_missing,
             )

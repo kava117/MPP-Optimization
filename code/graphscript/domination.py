@@ -29,7 +29,8 @@ def abbreviate_label(index: int, name: str) -> str:
 DRIVING_MATRIX_CSV = "data/driving_matrix.csv"
 WALKING_MATRIX_CSV = "data/walking_matrix.csv"
 TRANSIT_MATRIX_CSV = "data/transit_matrix.csv"
- 
+METADATA_CSV       = "data/weighted_centers_new.csv"
+
 OUTPUT_DIR = "images/"
  
 # Node colors
@@ -48,15 +49,17 @@ class DominatingSetSolver:
  
     def __init__(
         self,
-        driving_csv: str = DRIVING_MATRIX_CSV,
-        walking_csv: str = WALKING_MATRIX_CSV,
-        transit_csv: str = TRANSIT_MATRIX_CSV,
-        output_dir: str = OUTPUT_DIR,
+        driving_csv:  str = DRIVING_MATRIX_CSV,
+        walking_csv:  str = WALKING_MATRIX_CSV,
+        transit_csv:  str = TRANSIT_MATRIX_CSV,
+        metadata_csv: str = METADATA_CSV,
+        output_dir:   str = OUTPUT_DIR,
     ):
-        self.driving_csv = driving_csv
-        self.walking_csv = walking_csv
-        self.transit_csv = transit_csv
-        self.output_dir  = output_dir
+        self.driving_csv  = driving_csv
+        self.walking_csv  = walking_csv
+        self.transit_csv  = transit_csv
+        self.metadata_csv = metadata_csv
+        self.output_dir   = output_dir
  
     # ── Data loading ─────────────────────────────────────────────────────────
  
@@ -109,6 +112,53 @@ class DominatingSetSolver:
         dominating_set = [i for i in range(n) if pulp.value(x[i]) > 0.5]
         return dominating_set
  
+    # ── Geographic layout ─────────────────────────────────────────────────────
+
+    def _load_geo_pos(self, labels: list[str]) -> dict[int, tuple[float, float]]:
+        """
+        Build node-index → (x, y) positions from lat/lon in the metadata CSV.
+        Uses occurrence-order matching so duplicate names resolve correctly.
+        Returns a normalized position dict; nodes with missing coords get (0, 0).
+        """
+        df = pd.read_csv(self.metadata_csv, skip_blank_lines=True)
+        df.columns = [c.strip().lower() for c in df.columns]
+
+        # Group metadata rows by name, preserving order
+        name_to_rows: dict[str, list] = {}
+        for _, row in df.iterrows():
+            name_to_rows.setdefault(row["name"], []).append(row)
+
+        seen: dict[str, int] = {}
+        raw: dict[int, tuple[float, float]] = {}
+        for i, label in enumerate(labels):
+            occurrence = seen.get(label, 0)
+            seen[label] = occurrence + 1
+            rows = name_to_rows.get(label, [])
+            if occurrence < len(rows):
+                row = rows[occurrence]
+                try:
+                    lat, lon = float(row["lat"]), float(row["lon"])
+                    raw[i] = (lon, lat)
+                except (ValueError, KeyError):
+                    pass
+
+        if not raw:
+            return {i: (0.0, 0.0) for i in range(len(labels))}
+
+        lons = [p[0] for p in raw.values()]
+        lats = [p[1] for p in raw.values()]
+        lon_range = (max(lons) - min(lons)) or 1.0
+        lat_range = (max(lats) - min(lats)) or 1.0
+        normalized = {
+            i: ((p[0] - min(lons)) / lon_range * 2 - 1,
+                (p[1] - min(lats)) / lat_range * 2 - 1)
+            for i, p in raw.items()
+        }
+        for i in range(len(labels)):
+            if i not in normalized:
+                normalized[i] = (0.0, 0.0)
+        return normalized
+
     # ── Graph building ────────────────────────────────────────────────────────
  
     def _build_graph(self, adj: np.ndarray) -> nx.Graph:
@@ -232,19 +282,8 @@ class DominatingSetSolver:
  
             # Layouts
             spring_pos = nx.spring_layout(G, seed=42, k=2.5)
- 
-            # Geographic layout — labels are "idx: Aaa. Bbb." so we need
-            # the original coords, which are encoded as the matrix row/col order.
-            # We extract lat/lon from the adjacency CSV index if available,
-            # otherwise fall back to spring layout for geo too.
-            geo_pos = spring_pos  # fallback
-            try:
-                df_raw = pd.read_csv(csv_path, index_col=0)
-                # coords are not stored in the matrix CSV, so geo uses spring
-                # To use real geo layout, pass coords separately (see note below)
-            except Exception:
-                pass
- 
+            geo_pos    = self._load_geo_pos(labels)
+
             mode_lower = mode.lower()
  
             print(f"\nGenerating highlighted graphs ({mode})...")
@@ -260,23 +299,6 @@ class DominatingSetSolver:
             )
  
         print("\nAll done!")
- 
- 
-# ── Optional: geographic layout support ──────────────────────────────────────
-# If you want the geo layout to use real lat/lon coordinates, instantiate like:
-#
-#   solver = DominatingSetSolver()
-#   solver.run_with_coords(coords)  # coords = list of (lat, lon) tuples
-#
-# and add this method to the class:
-#
-#   def run_with_coords(self, coords):
-#       self._coords = coords
-#       self.run()
-#
-# Then inside run(), replace geo_pos fallback with:
-#   geo_pos = {i: (self._coords[i][1], self._coords[i][0]) for i in range(n)}
- 
  
 # ─── ENTRY POINT ─────────────────────────────────────────────────────────────
  
