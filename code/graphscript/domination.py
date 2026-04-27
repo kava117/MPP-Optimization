@@ -26,17 +26,19 @@ def abbreviate_label(index: int, name: str) -> str:
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
  
-DRIVING_MATRIX_CSV = "data/driving_matrix.csv"
-WALKING_MATRIX_CSV = "data/walking_matrix.csv"
-TRANSIT_MATRIX_CSV = "data/transit_matrix.csv"
-METADATA_CSV       = "data/weighted_centers_new.csv"
+DRIVING_MATRIX_CSV  = "data/driving_matrix.csv"
+WALKING_MATRIX_CSV  = "data/walking_matrix.csv"
+TRANSIT_MATRIX_CSV  = "data/transit_matrix.csv"
+METADATA_CSV        = "data/weighted_centers_new.csv"
+KNOWN_LOCATIONS_CSV = "data/known_locations.csv"
 
 OUTPUT_DIR = "images/"
- 
+
 # Node colors
-COLOR_DOMINATING = "#e63946"   # Red   — in the dominating set
-COLOR_REGULAR    = "#f0a500"   # Orange — regular node
-COLOR_EDGE       = "#4a90d9"   # Blue  — edges
+COLOR_DOMINATING   = "#e63946"  # Red    — in the dominating set
+COLOR_REGULAR      = "#f0a500"  # Orange — regular node
+COLOR_EDGE         = "#4a90d9"  # Blue   — edges
+COLOR_KNOWN_BORDER = "#27ae60"  # Green border — known location from CSV
  
  
 # ─── CLASS ───────────────────────────────────────────────────────────────────
@@ -49,20 +51,31 @@ class DominatingSetSolver:
  
     def __init__(
         self,
-        driving_csv:  str = DRIVING_MATRIX_CSV,
-        walking_csv:  str = WALKING_MATRIX_CSV,
-        transit_csv:  str = TRANSIT_MATRIX_CSV,
-        metadata_csv: str = METADATA_CSV,
-        output_dir:   str = OUTPUT_DIR,
+        driving_csv:       str = DRIVING_MATRIX_CSV,
+        walking_csv:       str = WALKING_MATRIX_CSV,
+        transit_csv:       str = TRANSIT_MATRIX_CSV,
+        metadata_csv:      str = METADATA_CSV,
+        known_locations_csv: str = KNOWN_LOCATIONS_CSV,
+        output_dir:        str = OUTPUT_DIR,
     ):
-        self.driving_csv  = driving_csv
-        self.walking_csv  = walking_csv
-        self.transit_csv  = transit_csv
-        self.metadata_csv = metadata_csv
-        self.output_dir   = output_dir
+        self.driving_csv         = driving_csv
+        self.walking_csv         = walking_csv
+        self.transit_csv         = transit_csv
+        self.metadata_csv        = metadata_csv
+        self.known_locations_csv = known_locations_csv
+        self.output_dir          = output_dir
  
     # ── Data loading ─────────────────────────────────────────────────────────
- 
+
+    def _load_known_names(self) -> set[str]:
+        """Returns the set of location names from the known_locations CSV."""
+        try:
+            df = pd.read_csv(self.known_locations_csv)
+            return set(df["name"].dropna().str.strip())
+        except FileNotFoundError:
+            print(f"  Warning: {self.known_locations_csv} not found — no known-location highlighting.")
+            return set()
+
     def _load_matrix(self, filepath: str) -> tuple[np.ndarray, list[str]]:
         """
         Load an adjacency matrix CSV.
@@ -181,25 +194,24 @@ class DominatingSetSolver:
         dominating_set: list[int],
         title: str,
         filepath: str,
+        known_names: set[str] | None = None,
     ):
+        known_names = known_names or set()
         fig, ax = plt.subplots(figsize=(18, 13))
         ax.set_title(title, fontsize=13, fontweight="bold", pad=15)
- 
+
         label_map = {i: abbreviate_label(i + 1, labels[i]) for i in range(len(labels))}
 
-        # Node colors: red for dominating set, orange otherwise
         node_colors = [
             COLOR_DOMINATING if i in dominating_set else COLOR_REGULAR
             for i in range(len(labels))
         ]
- 
-        # Node sizes: slightly larger for dominating nodes
-        node_sizes = [
-            500 if i in dominating_set else 300
-            for i in range(len(labels))
-        ]
- 
-        # Edge widths scaled by inverse weight (shorter = bolder); sparse graphs get thicker, more opaque lines
+        node_sizes = [500 if i in dominating_set else 300 for i in range(len(labels))]
+
+        known_indices = {i for i in range(len(labels)) if labels[i] in known_names}
+        other_indices = [i for i in range(len(labels)) if i not in known_indices]
+        known_list    = list(known_indices)
+
         edge_weights = [G[u][v]["weight"] for u, v in G.edges()]
         sparse = len(edge_weights) < 30
         if edge_weights:
@@ -211,24 +223,41 @@ class DominatingSetSolver:
 
         edge_alpha = 0.65 if sparse else 0.4
         nx.draw_networkx_edges(G, pos, ax=ax, width=widths, alpha=edge_alpha, edge_color=COLOR_EDGE)
-        nx.draw_networkx_nodes(G, pos, ax=ax, node_size=node_sizes,
-                               node_color=node_colors, alpha=0.92)
+        nx.draw_networkx_nodes(
+            G, pos, ax=ax,
+            nodelist=other_indices,
+            node_size=[node_sizes[i] for i in other_indices],
+            node_color=[node_colors[i] for i in other_indices],
+            alpha=0.92,
+        )
+        nx.draw_networkx_nodes(
+            G, pos, ax=ax,
+            nodelist=known_list,
+            node_size=[node_sizes[i] for i in known_list],
+            node_color=[node_colors[i] for i in known_list],
+            alpha=0.92,
+            edgecolors=COLOR_KNOWN_BORDER,
+            linewidths=2.5,
+        )
         nx.draw_networkx_labels(G, pos, labels=label_map, ax=ax,
                                 font_size=6, font_color="#111")
- 
+
         edge_labels = {(u, v): f"{G[u][v]['weight']:.2f}mi" for u, v in G.edges()}
         nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=ax,
                                      font_size=4.5, label_pos=0.35, alpha=0.7)
- 
-        # Legend
+
         from matplotlib.patches import Patch
         legend_elements = [
             Patch(facecolor=COLOR_DOMINATING, label=f"Dominating set ({len(dominating_set)} nodes)"),
             Patch(facecolor=COLOR_REGULAR,    label="Regular node"),
         ]
-        ax.legend(handles=legend_elements, loc="upper left", fontsize=9,
-                  framealpha=0.85)
- 
+        if known_names:
+            legend_elements.append(
+                Patch(facecolor=COLOR_REGULAR, edgecolor=COLOR_KNOWN_BORDER,
+                      linewidth=2, label="Known location (green border)")
+            )
+        ax.legend(handles=legend_elements, loc="upper left", fontsize=9, framealpha=0.85)
+
         ax.axis("off")
         plt.tight_layout()
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
@@ -264,6 +293,8 @@ class DominatingSetSolver:
         """
         Full pipeline: load -> solve -> visualize for both driving and walking.
         """
+        known_names = self._load_known_names()
+
         for mode, csv_path in [("Driving", self.driving_csv),
                                 ("Walking", self.walking_csv),
                                 ("Transit", self.transit_csv)]:
@@ -291,11 +322,13 @@ class DominatingSetSolver:
                 G, labels, spring_pos, dominating_set,
                 title=f"{mode} Graph - Spring Layout | Minimum Dominating Set ({len(dominating_set)} nodes)",
                 filepath=f"{self.output_dir}{mode_lower}/{mode_lower}_graph_spring_mds.png",
+                known_names=known_names,
             )
             self._draw_graph(
                 G, labels, geo_pos, dominating_set,
                 title=f"{mode} Graph - Geographic Layout | Minimum Dominating Set ({len(dominating_set)} nodes)",
                 filepath=f"{self.output_dir}{mode_lower}/{mode_lower}_graph_geo_mds.png",
+                known_names=known_names,
             )
  
         print("\nAll done!")

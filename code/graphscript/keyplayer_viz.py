@@ -32,13 +32,14 @@ import pandas as pd
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-DRIVING_MATRIX_CSV = "data/driving_matrix.csv"
-WALKING_MATRIX_CSV = "data/walking_matrix.csv"
-METADATA_CSV       = "data/weighted_centers_new.csv"
-R_SCRIPT           = "keyplayer_analysis.R"
-OUTPUT_DIR         = "images/"
-K                  = 5
-HIGH_RES_DPI       = 300
+DRIVING_MATRIX_CSV  = "data/driving_matrix.csv"
+WALKING_MATRIX_CSV  = "data/walking_matrix.csv"
+METADATA_CSV        = "data/weighted_centers_new.csv"
+KNOWN_LOCATIONS_CSV = "data/known_locations.csv"
+R_SCRIPT            = "keyplayer_analysis.R"
+OUTPUT_DIR          = "images/"
+K                   = 5
+HIGH_RES_DPI        = 300
 
 # Rank 1 (most important) → index 0, rank 5 → index 4
 KP_RANK_COLORS = [
@@ -49,12 +50,22 @@ KP_RANK_COLORS = [
     "#fadbd8",  # rank 5 — pale pink
 ]
 
-COLOR_REGULAR  = "#f0a500"  # orange — non-key-player node
-COLOR_EDGE     = "#4a90d9"  # blue — edges
+COLOR_REGULAR      = "#f0a500"  # orange — non-key-player node
+COLOR_EDGE         = "#4a90d9"  # blue — edges
+COLOR_KNOWN_BORDER = "#27ae60"  # green border — known location from CSV
 
 STOPWORDS = {"of", "the", "and", "at", "in", "a", "an", "for", "to", "by"}
 
 # ─── DATA HELPERS ────────────────────────────────────────────────────────────
+
+def load_known_names(filepath: str) -> set[str]:
+    """Returns the set of location names from the known_locations CSV."""
+    try:
+        df = pd.read_csv(filepath)
+        return set(df["name"].dropna().str.strip())
+    except FileNotFoundError:
+        print(f"  Warning: {filepath} not found — no known-location highlighting.", file=sys.stderr)
+        return set()
 
 def abbreviate_label(index: int, name: str) -> str:
     parts = [w[:3].capitalize() + "." for w in name.split() if w.lower() not in STOPWORDS]
@@ -144,18 +155,29 @@ def draw_panel(
     kp_rank_map: dict[str, int],
     title: str,
     exclude_nodes: set[int] | None = None,
+    known_names: set[str] | None = None,
 ):
     """Draw a single key-player graph panel onto ax."""
     exclude_nodes = exclude_nodes or set()
+    known_names   = known_names or set()
     nodelist = [i for i in G.nodes() if i not in exclude_nodes]
     edgelist = [
         (u, v) for u, v in G.edges()
         if u not in exclude_nodes and v not in exclude_nodes
     ]
 
+    known_indices = {i for i in nodelist if labels[i] in known_names}
+
     regular_nodes = [i for i in nodelist if kp_rank_map.get(labels[i]) is None]
     kp_nodes      = [i for i in nodelist if kp_rank_map.get(labels[i]) is not None]
-    kp_colors     = [KP_RANK_COLORS[kp_rank_map[labels[i]] - 1] for i in kp_nodes]
+
+    # Split each group into known-location vs. other for border styling
+    regular_other = [i for i in regular_nodes if i not in known_indices]
+    regular_known = [i for i in regular_nodes if i in known_indices]
+    kp_other      = [i for i in kp_nodes if i not in known_indices]
+    kp_known      = [i for i in kp_nodes if i in known_indices]
+    kp_other_colors = [KP_RANK_COLORS[kp_rank_map[labels[i]] - 1] for i in kp_other]
+    kp_known_colors = [KP_RANK_COLORS[kp_rank_map[labels[i]] - 1] for i in kp_known]
 
     edge_weights = [G[u][v]["weight"] for u, v in edgelist]
     if edge_weights:
@@ -170,14 +192,25 @@ def draw_panel(
         G, pos, ax=ax, edgelist=edgelist,
         width=widths, alpha=0.35, edge_color=COLOR_EDGE,
     )
-    # Draw regular nodes first, then key players on top so they are never obscured
+    # Draw regular nodes first, then key players on top so they are never obscured.
+    # Known-location nodes get a green border to distinguish them.
     nx.draw_networkx_nodes(
-        G, pos, ax=ax, nodelist=regular_nodes,
+        G, pos, ax=ax, nodelist=regular_other,
         node_size=280, node_color=COLOR_REGULAR, alpha=0.92,
     )
     nx.draw_networkx_nodes(
-        G, pos, ax=ax, nodelist=kp_nodes,
-        node_size=650, node_color=kp_colors, alpha=0.92,
+        G, pos, ax=ax, nodelist=regular_known,
+        node_size=280, node_color=COLOR_REGULAR, alpha=0.92,
+        edgecolors=COLOR_KNOWN_BORDER, linewidths=2.5,
+    )
+    nx.draw_networkx_nodes(
+        G, pos, ax=ax, nodelist=kp_other,
+        node_size=650, node_color=kp_other_colors, alpha=0.92,
+    )
+    nx.draw_networkx_nodes(
+        G, pos, ax=ax, nodelist=kp_known,
+        node_size=650, node_color=kp_known_colors, alpha=0.92,
+        edgecolors=COLOR_KNOWN_BORDER, linewidths=2.5,
     )
     nx.draw_networkx_labels(
         G, pos, labels={i: label_map[i] for i in regular_nodes}, ax=ax,
@@ -198,7 +231,7 @@ def draw_panel(
     ax.axis("off")
 
 
-def build_legend(k: int) -> list[mpatches.Patch]:
+def build_legend(k: int, has_known: bool = False) -> list[mpatches.Patch]:
     patches = [
         mpatches.Patch(
             facecolor=KP_RANK_COLORS[r - 1],
@@ -212,6 +245,15 @@ def build_legend(k: int) -> list[mpatches.Patch]:
     patches.append(
         mpatches.Patch(facecolor=COLOR_REGULAR, label="Non-key-player node")
     )
+    if has_known:
+        patches.append(
+            mpatches.Patch(
+                facecolor=COLOR_REGULAR,
+                edgecolor=COLOR_KNOWN_BORDER,
+                linewidth=2,
+                label="Known location (green border)",
+            )
+        )
     return patches
 
 
@@ -234,6 +276,8 @@ def main():
     run_r_script()
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    known_names = load_known_names(KNOWN_LOCATIONS_CSV)
 
     # Load matrices and graphs
     driving_adj, driving_labels = load_matrix(DRIVING_MATRIX_CSV)
@@ -288,9 +332,10 @@ def main():
                 kp_rank_map=kp_results[(matrix, kp_type)],
                 title=f"{matrix.capitalize()} Network  —  {col_headers[kp_type]}",
                 exclude_nodes=exclude,
+                known_names=known_names,
             )
 
-        legend_patches = build_legend(K)
+        legend_patches = build_legend(K, has_known=bool(known_names))
         fig.legend(
             handles=legend_patches,
             loc="lower center",
@@ -322,8 +367,9 @@ def main():
             ax, driving_G, driving_labels, driving_spring,
             kp_rank_map=kp_results[("driving", kp_type)],
             title=f"Driving Network  —  {col_header}",
+            known_names=known_names,
         )
-        legend_patches = build_legend(K)
+        legend_patches = build_legend(K, has_known=bool(known_names))
         fig.legend(
             handles=legend_patches,
             loc="lower center",
