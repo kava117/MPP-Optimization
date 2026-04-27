@@ -6,7 +6,7 @@ This module solves an optimization problem: given a set of community centers acr
 
 Two approaches are implemented and intended for side-by-side comparison:
 - A mathematically optimal ILP solver (`domination.py`)
-- A priority-weighted greedy solver that biases selection toward socioeconomically underserved nodes (`priority-domination.py`)
+- A priority-weighted solver that biases selection toward socioeconomically underserved nodes (`priority-domination.py`)
 
 All three transport modes — driving, walking, and public transit — are supported across both solvers, enabling direct comparison of coverage under each mode.
 
@@ -15,17 +15,17 @@ All three transport modes — driving, walking, and public transit — are suppo
 ## Pipeline Overview
 
 ```
-centers.csv
+data/centers_new.csv
     │
     ├──▶ csv_to_adjacency.py
-    │         ├── driving_matrix.csv
-    │         └── walking_matrix.csv
+    │         ├── data/driving_matrix.csv
+    │         └── data/walking_matrix.csv
     │
-    └──▶ transit_centers.csv
+    └──▶ data/transit_centers.csv
               │
               ▼
          transit_csv_to_adjacency.py
-                   └── transit_matrix.csv
+                   └── data/transit_matrix.csv
                              │
               ┌──────────────┴──────────────┐
               │                             │
@@ -42,6 +42,8 @@ centers.csv
 
 Each stage is a standalone script. The adjacency CSVs are the only artifact passed between stages.
 
+`run_pipeline.sh` executes all five stages in order, checks Python and R dependencies upfront, and fails fast with a descriptive message if any step errors. The R dependency check verifies both that `Rscript` is on the PATH and that the `keyplayer` package is installed.
+
 ---
 
 ## Images
@@ -57,11 +59,13 @@ All output images are organized into subdirectories under `images/`:
 
 **Edge rendering:** Graphs with fewer than 30 edges (walking, transit) automatically use thicker lines (2× scale, minimum width 2.0) and higher opacity (alpha 0.65) to keep sparse edges visible. Dense graphs (driving) use the default thinner, more transparent style.
 
+**Known-location highlighting:** All three visualization scripts (`domination.py`, `priority-domination.py`, `keyplayer_viz.py`) load `data/known_locations.csv` at runtime and draw a **green border** (`#27ae60`, linewidth 2.5) on any node whose name matches an entry in that file. The green border is layered on top of the node's existing fill color (red for dominating/key-player nodes, orange for regular nodes), so both pieces of information remain visible. A "Known location (green border)" entry is added to each legend when at least one match is found. If the file is missing the scripts emit a warning and continue without highlighting.
+
 ---
 
 ## Files
 
-### `centers.csv`
+### `data/centers_new.csv`
 
 Input data. Each row is one community center.
 
@@ -81,7 +85,17 @@ Nodes missing `median_income`, `population_size`, or `pop_density` are marked in
 
 ---
 
-### `transit_centers.csv`
+### `data/known_locations.csv`
+
+Reference list of locations already identified as sites of interest (e.g. community centers confirmed for outreach). Used exclusively for visualization — nodes whose `name` matches an entry in this file receive a green border in all generated images.
+
+**Columns:** `name`, `address`, `zipcode`
+
+The `name` column is matched exactly (after stripping whitespace) against graph node labels. Duplicate names in the file are handled correctly — the match is set-based, so a name appearing multiple times still produces a single match per node. Nodes without a match are rendered with their default style.
+
+---
+
+### `data/transit_centers.csv`
 
 Input data for the transit graph. Each row is a bus route edge between two community centers.
 
@@ -95,11 +109,11 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 
 **Role:** Data ingestion and graph construction for driving and walking modes.
 
-**Inputs:** `centers.csv`
+**Inputs:** `data/centers_new.csv`
 
 **Outputs:**
-- `driving_matrix.csv` — N×N weighted adjacency matrix (edge weight = driving distance in miles)
-- `walking_matrix.csv` — N×N weighted adjacency matrix (edge weight = walking distance in miles)
+- `data/driving_matrix.csv` — N×N weighted adjacency matrix (edge weight = driving distance in miles)
+- `data/walking_matrix.csv` — N×N weighted adjacency matrix (edge weight = walking distance in miles)
 - `images/driving/driving_graph_spring.png`, `images/driving/driving_graph_geo.png`
 - `images/walking/walking_graph_spring.png`, `images/walking/walking_graph_geo.png`
 
@@ -109,7 +123,7 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 |---|---|---|
 | `DRIVING_THRESHOLD_MILES` | `6.86` | Max driving distance to place an edge |
 | `WALKING_THRESHOLD_MILES` | `0.25` | Max walking distance to place an edge |
-| `CSV_PATH` | `"centers.csv"` | Input file |
+| `CSV_PATH` | `"data/centers_new.csv"` | Input file |
 
 **How it works:**
 1. Loads `centers.csv`, extracts `(lat, lon)` for each node.
@@ -135,9 +149,9 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 
 | Constant | Default | Meaning |
 |---|---|---|
-| `TRANSIT_CSV` | `"transit_centers.csv"` | Transit edge list input |
-| `CENTERS_CSV` | `"centers.csv"` | Node list source (must match driving/walking matrices) |
-| `OUTPUT_CSV` | `"transit_matrix.csv"` | Output matrix path |
+| `TRANSIT_CSV` | `"data/transit_centers.csv"` | Transit edge list input |
+| `CENTERS_CSV` | `"data/centers_new.csv"` | Node list source (must match driving/walking matrices) |
+| `OUTPUT_CSV` | `"data/transit_matrix.csv"` | Output matrix path |
 | `THRESHOLD_MILES` | `3.5` | Max `total_trip_miles` to place an edge |
 
 **How it works:**
@@ -155,7 +169,7 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 
 **Role:** Mathematically optimal MDS via Integer Linear Programming.
 
-**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `transit_matrix.csv`
+**Inputs:** `data/driving_matrix.csv`, `data/walking_matrix.csv`, `data/transit_matrix.csv`
 
 **Outputs** (in respective subdirectories under `images/`):
 - `driving/driving_graph_spring_mds.png`, `driving/driving_graph_geo_mds.png`
@@ -163,6 +177,8 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 - `transit/transit_graph_spring_mds.png`, `transit/transit_graph_geo_mds.png`
 
 **Class:** `DominatingSetSolver`
+
+**Known-location highlighting:** Loads `data/known_locations.csv` via `_load_known_names()` and draws a green border on matching nodes in all output images. See the Images section for details.
 
 **ILP formulation:**
 - Binary variable `x_i` for each node (1 = in dominating set).
@@ -180,7 +196,7 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 
 **Role:** Equity-weighted greedy MDS. Selects nodes in descending priority order based on socioeconomic need rather than minimizing set size.
 
-**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `transit_matrix.csv`, `weighted_centers.csv`
+**Inputs:** `data/driving_matrix.csv`, `data/walking_matrix.csv`, `data/transit_matrix.csv`, `data/weighted_centers_new.csv`
 
 **Outputs** (in respective subdirectories under `images/`):
 - `driving/driving_graph_spring_priority_mds.png`, `driving/driving_graph_geo_priority_mds.png`
@@ -188,6 +204,8 @@ The key field is `total_trip_miles` — the full door-to-door trip distance incl
 - `transit/transit_graph_spring_priority_mds.png`, `transit/transit_graph_geo_priority_mds.png`
 
 **Class:** `PriorityDominatingSetSolver`
+
+**Known-location highlighting:** Loads `data/known_locations.csv` via `_load_known_names()` and draws a green border on matching nodes in all output images. See the Images section for details.
 
 **Scoring (each factor scored 1–3, max total = 18):**
 
@@ -208,7 +226,7 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 3. Greedily iterate: if a node or any of its eligible neighbors is not yet dominated, add the node to the dominating set and mark all its neighbors as dominated.
 4. Ineligible (missing-data) nodes are excluded from selection but may be passively dominated if a neighbor is selected.
 
-**Label matching:** Matrix CSV labels are full center names, so `_match_label_to_metadata()` uses an exact `name` column lookup against `weighted_centers.csv`. No fuzzy matching is needed.
+**Label matching:** Matrix CSV labels are full center names, so `_match_label_to_metadata()` uses an exact `name` column lookup against `data/weighted_centers_new.csv`. No fuzzy matching is needed.
 
 ---
 
@@ -216,13 +234,15 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 
 **Role:** Key player analysis — identifies which nodes are structurally most important using centrality-based methods from Borgatti (2006), as implemented in the R `keyplayer` package (An & Liu 2016). Complements the dominating set approaches by asking a different question: not *which nodes cover the graph* but *which nodes are most critical to the network's structure*.
 
-**Inputs:** `driving_matrix.csv`, `walking_matrix.csv`, `weighted_centers.csv`
+**Inputs:** `data/driving_matrix.csv`, `data/walking_matrix.csv`, `data/weighted_centers_new.csv`
 
 **Outputs:**
-- `keyplayer_driving_fragment.csv`, `keyplayer_driving_mreach.csv`
-- `keyplayer_walking_fragment.csv`, `keyplayer_walking_mreach.csv`
+- `data/keyplayer_driving_fragment.csv`, `data/keyplayer_driving_mreach.csv`
+- `data/keyplayer_walking_fragment.csv`, `data/keyplayer_walking_mreach.csv`
 - `images/keyplayer/keyplayer_spring.png` — 2×2 combined figure, spring layout
 - `images/keyplayer/keyplayer_geo.png` — 2×2 combined figure, geographic layout
+- `images/keyplayer/driving_spring_neg.png` — driving KPP-Neg result, spring layout
+- `images/keyplayer/driving_spring_pos.png` — driving KPP-Pos result, spring layout
 
 **How it works:**
 
@@ -250,7 +270,7 @@ All six factors are equally weighted. Ties in total score are broken by degree (
 | KPP-Neg | `"fragment"` | `"min"` | Nodes whose removal most fragments the network (disruption) |
 | KPP-Pos | `"mreach.degree"` | `"max"` | Nodes that collectively reach the most other nodes within 2 hops |
 
-**Visualization:** Key players are rendered in a 5-shade red gradient by within-set rank: near-black red (rank 1, most important) through pale pink (rank 5, least important within the set). Non-key-player nodes are orange. A shared legend appears at the bottom of each combined figure.
+**Visualization:** Key players are rendered in a 5-shade red gradient by within-set rank: near-black red (rank 1, most important) through pale pink (rank 5, least important within the set). Non-key-player nodes are orange. Known-location nodes (from `data/known_locations.csv`) receive a green border regardless of key-player status. A shared legend appears at the bottom of each combined figure.
 
 **Search algorithm:** The `keyplayer` package uses a greedy search with random restarts — not a genetic algorithm. `seed="random"` and `round=50` provide 50 random restarts, which is adequate for a 64-node network. There is no GA option in this package.
 
